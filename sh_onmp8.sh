@@ -15,13 +15,13 @@ phpmod="php8-mod-calendar php8-mod-ctype php8-mod-curl php8-mod-dom php8-mod-exi
 
 # Web程序
 # (1) phpMyAdmin（数据库管理工具）
-url_phpMyAdmin="https://files.phpmyadmin.net/phpMyAdmin/4.8.3/phpMyAdmin-4.8.3-all-languages.zip"
+url_phpMyAdmin="https://files.phpmyadmin.net/phpMyAdmin/5.2.1/phpMyAdmin-5.2.1-all-languages.zip"
 
 # (2) WordPress（使用最广泛的CMS）
-url_WordPress="https://cn.wordpress.org/wordpress-4.9.4-zh_CN.zip"
+url_WordPress="https://br.wordpress.org/wordpress-6.1.1-pt_BR.zip"
 
 # (3) Owncloud（经典的私有云）
-url_Owncloud="https://download.owncloud.org/community/owncloud-10.0.10.zip"
+url_Owncloud="https://download.owncloud.com/server/stable/owncloud-latest.zip"
 
 # (4) Nextcloud（Owncloud团队的新作，美观强大的个人云盘）
 url_Nextcloud="https://download.nextcloud.com/server/releases/nextcloud-13.0.6.zip"
@@ -1065,7 +1065,7 @@ chdir = /
 PHPFPM
 
 sed -e "/^doc_root/d" -i /opt/etc/php.ini
-sed -e "s/.*memory_limit = .*/memory_limit = 128M/g" -i /opt/etc/php.ini
+sed -e "s/.*memory_limit = .*/memory_limit = 64M/g" -i /opt/etc/php.ini
 sed -e "s/.*output_buffering = .*/output_buffering = 4096/g" -i /opt/etc/php.ini
 sed -e "s/.*post_max_size = .*/post_max_size = 8000M/g" -i /opt/etc/php.ini
 sed -e "s/.*max_execution_time = .*/max_execution_time = 2000 /g" -i /opt/etc/php.ini
