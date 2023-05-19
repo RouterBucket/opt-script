@@ -36,7 +36,6 @@ hostIP=""
 domain=""
 name=""
 name1=""
-timestamp=`date +%s`
 qcloud_record_id=""
 [ -z $qcloud_interval ] && qcloud_interval=600 && nvram set qcloud_interval=$qcloud_interval
 [ -z $qcloud_ttl ] && qcloud_ttl=600 && nvram set qcloud_ttl=$qcloud_ttl
@@ -66,7 +65,7 @@ if [ "$1" = "x" ] ; then
 	qcloud_renum=${qcloud_renum:-"0"}
 	qcloud_renum=`expr $qcloud_renum + 1`
 	nvram set qcloud_renum="$qcloud_renum"
-	if [ "$qcloud_renum" -gt "2" ] ; then
+	if [ "$qcloud_renum" -gt "3" ] ; then
 		I=19
 		echo $I > $relock
 		logger -t "【qcloud】" "多次尝试启动失败，等待【"`cat $relock`"分钟】后自动尝试重新启动"
@@ -77,7 +76,7 @@ if [ "$1" = "x" ] ; then
 			[ "$(nvram get qcloud_renum)" = "0" ] && exit 0
 			[ $I -lt 0 ] && break
 		done
-		nvram set qcloud_renum="0"
+		nvram set qcloud_renum="1"
 	fi
 	[ -f $relock ] && rm -f $relock
 fi
@@ -159,7 +158,6 @@ if [ -z "$curltest" ] || [ ! -s "`which curl`" ] ; then
 fi
 IPv6=0
 if [ "$qcloud_domain"x != "x" ] && [ "$qcloud_name"x != "x" ] ; then
-	timestamp=`date +%s`
 	qcloud_record_id=""
 	domain="$qcloud_domain"
 	name="$qcloud_name"
@@ -167,7 +165,6 @@ if [ "$qcloud_domain"x != "x" ] && [ "$qcloud_name"x != "x" ] ; then
 fi
 if [ "$qcloud_domain2"x != "x" ] && [ "$qcloud_name2"x != "x" ] ; then
 	sleep 1
-	timestamp=`date +%s`
 	qcloud_record_id=""
 	domain="$qcloud_domain2"
 	name="$qcloud_name2"
@@ -176,7 +173,6 @@ fi
 if [ "$qcloud_domain6"x != "x" ] && [ "$qcloud_name6"x != "x" ] ; then
 	sleep 1
 	IPv6=1
-	timestamp=`date +%s`
 	qcloud_record_id=""
 	domain="$qcloud_domain6"
 	name="$qcloud_name6"
@@ -192,7 +188,6 @@ do
 	sleep 1
 	IPv6=1
 	IPv6_neighbor=1
-	timestamp=`date +%s`
 	qcloud_record_id=""
 	name="$(echo "$line" | cut -d '@' -f1)"
 	domain="$(echo "$line" | cut -d '@' -f2)"
@@ -203,8 +198,8 @@ do
 	inet6_neighbor="$(echo "$line" | cut -d '@' -f6)"
 	inet6_neighbor=$(echo $inet6_neighbor)
 	if [ -z "$inet6_neighbor" ] ; then
-		ip -f inet6 neighbor show > /tmp/ip6_neighbor.log
-		inet6_neighbor="$(cat /tmp/ip6_neighbor.log | grep "$inf_MAC" | grep -v "$inf_v_match" | grep "$inf_match" | awk -F ' ' '{print $1}' | sed -n '1p')"
+		ip6_neighbor_get
+		inet6_neighbor="$(cat /tmp/ip6_neighbor.log | grep "$inf_MAC" | grep -v "$inf_v_match" | grep "$inf_match" | awk -F ' ' '{print $1}' | sed -n '$p')"
 	fi
 	[ ! -z "$inet6_neighbor" ] && arDdnsCheck $domain $name
 	IPv6_neighbor=0
@@ -232,39 +227,47 @@ enc() {
 }
 
 send_request() {
-	random=`cat /proc/sys/kernel/random/uuid | tr -cd "[0-9]"`
-	args="Action=$1&Nonce=""`echo ${random:0:5}`""&SecretId=$qcloud_ak&SignatureMethod=HmacSHA1&Timestamp=$timestamp&$2"
-	hash=$(echo -n "GETcns.api.qcloud.com/v2/index.php?$args" | openssl dgst -sha1 -hmac "$qcloud_sk" -binary | openssl base64)
-	curl -L    -s "https://cns.api.qcloud.com/v2/index.php?$args&Signature=$(enc "$hash")"
+	args="$1"
+	hash=$(echo -n "GETdnspod.tencentcloudapi.com/?$args" | openssl dgst -sha1 -hmac "$qcloud_sk" -binary | openssl base64)
+	curl -L	-s "https://dnspod.tencentcloudapi.com/?$args&Signature=$(enc "$hash")"
 	sleep 1
 }
 
 get_recordid() {
-	grep -Eo '"id":[0-9]+' | cut -d':' -f2 | tr -d '"' |head -n1
+	grep -Eo '"RecordId":[0-9]+' | cut -d':' -f2 | tr -d '"' |head -n1
 }
 
 get_recordIP() {
-	grep -Eo '"value":"[^"]*"' | awk -F 'value":"' '{print $2}' | tr -d '"' |head -n1
+	grep -Eo '"Value":"[^"]*"' | awk -F 'Value":"' '{print $2}' | tr -d '"' |head -n1
 }
 
-get_codeDesc() {
-	grep -Eo '"codeDesc":"[^"]*"' | awk -F 'codeDesc":"' '{print $2}' | tr -d '"' |head -n1
+get_Message() {
+	grep -Eo '"Message":"[^"]*"' | awk -F 'Message":"' '{print $2}' | tr -d '"' |head -n1
 }
 
 query_recordid() {
-	send_request "RecordList" "domain=$domain&recordType=$domain_type&subDomain=$name1"
+	random="`cat /proc/sys/kernel/random/uuid | tr -cd "[0-9]"`"
+	random="`echo ${random:0:5}`"
+	timestamp="`date +%s`"
+	send_request "Action=DescribeRecordList&Domain=${domain}&Language=en-US&Nonce=${random}&RecordType=${domain_type}&SecretId=${qcloud_ak}&Subdomain=${name1}&Timestamp=${timestamp}&Version=2021-03-23"
 }
 
 update_record() {
+	random="`cat /proc/sys/kernel/random/uuid | tr -cd "[0-9]"`"
+	random="`echo ${random:0:5}`"
+	timestamp="`date +%s`"
 	#hostIP_tmp=$(enc "$hostIP")
 	hostIP_tmp="$hostIP"
-	send_request "RecordModify" "domain=$domain&recordId=$1&recordLine=默认&recordType=$domain_type&subDomain=$name1&ttl=$qcloud_ttl&value=$hostIP_tmp"
+	send_request "Action=ModifyRecord&Domain=${domain}&Language=en-US&Nonce=${random}&RecordId=${1}&RecordLine=默认&RecordType=${domain_type}&SecretId=${qcloud_ak}&SubDomain=${name1}&TTL=${qcloud_ttl}&Timestamp=${timestamp}&Value=${hostIP_tmp}&Version=2021-03-23"
 }
 
 add_record() {
+	random="`cat /proc/sys/kernel/random/uuid | tr -cd "[0-9]"`"
+	random="`echo ${random:0:5}`"
+	timestamp="`date +%s`"
 	#hostIP_tmp=$(enc "$hostIP")
 	hostIP_tmp="$hostIP"
-	send_request "RecordCreate" "domain=$domain&recordLine=默认&recordType=$domain_type&subDomain=$name1&ttl=$qcloud_ttl&value=$hostIP_tmp"
+	send_request "Action=CreateRecord&Domain=${domain}&Language=en-US&Nonce=${random}&RecordLine=默认&RecordType=${domain_type}&SecretId=${qcloud_ak}&SubDomain=${name1}&TTL=${qcloud_ttl}&Timestamp=${timestamp}&Value=${hostIP_tmp}&Version=2021-03-23"
 }
 
 arDdnsInfo() {
@@ -276,7 +279,6 @@ name1=$name
 		domain_type="A"
 	fi
 	sleep 1
-	timestamp=`date +%s`
 	# 获得最后更新IP
 	recordIP=`query_recordid | get_recordIP`
 	
@@ -300,66 +302,6 @@ name1=$name
 	fi
 }
 
-# 查询域名地址
-# 参数: 待查询域名
-arNslookup() {
-mkdir -p /tmp/arNslookup
-nslookup $1 | tail -n +3 | grep "Address" | awk '{print $3}'| grep -v ":" | sed -n '1p' > /tmp/arNslookup/$$ &
-I=5
-while [ ! -s /tmp/arNslookup/$$ ] ; do
-		I=$(($I - 1))
-		[ $I -lt 0 ] && break
-		sleep 1
-done
-killall nslookup
-if [ -s /tmp/arNslookup/$$ ] ; then
-cat /tmp/arNslookup/$$ | sort -u | grep -v "^$"
-else
-	curltest=`which curl`
-	if [ -z "$curltest" ] || [ ! -s "`which curl`" ] ; then
-		Address="`wget -T 5 -t 3 --user-agent "$user_agent" --quiet --output-document=- http://119.29.29.29/d?dn=$1`"
-		if [ $? -eq 0 ]; then
-		echo "$Address" |  sed s/\;/"\n"/g | sed -n '1p' | grep -E -o '([0-9]+\.){3}[0-9]+'
-		fi
-	else
-		Address="`curl --user-agent "$user_agent" -s http://119.29.29.29/d?dn=$1`"
-		if [ $? -eq 0 ]; then
-		echo "$Address" |  sed s/\;/"\n"/g | sed -n '1p' | grep -E -o '([0-9]+\.){3}[0-9]+'
-		fi
-	fi
-fi
-rm -f /tmp/arNslookup/$$
-}
-
-arNslookup6() {
-mkdir -p /tmp/arNslookup
-nslookup $1 | tail -n +3 | grep "Address" | awk '{print $3}'| grep ":" | sed -n '1p' > /tmp/arNslookup/$$ &
-I=5
-while [ ! -s /tmp/arNslookup/$$ ] ; do
-		I=$(($I - 1))
-		[ $I -lt 0 ] && break
-		sleep 1
-done
-killall nslookup
-if [ -s /tmp/arNslookup/$$ ] ; then
-	cat /tmp/arNslookup/$$ | sort -u | grep -v "^$"
-else
-	curltest=`which curl`
-	if [ -z "$curltest" ] || [ ! -s "`which curl`" ] ; then
-		Address="$(wget -T 5 -t 3 --user-agent "$user_agent" --quiet --output-document=- --header 'accept: application/dns-json' 'https://cloudflare-dns.com/dns-query?name='"$1"'&type=AAAA')"
-		if [ $? -eq 0 ]; then
-		echo "$Address" | grep -Eo "data\":\"[^\"]+" | sed "s/data\":\"//g" | sed -n '1p'
-		fi
-	else
-		Address="$(curl --user-agent "$user_agent" -s -H 'accept: application/dns-json' 'https://cloudflare-dns.com/dns-query?name='"$1"'&type=AAAA')"
-		if [ $? -eq 0 ]; then
-		echo "$Address" | grep -Eo "data\":\"[^\"]+" | sed "s/data\":\"//g" | sed -n '1p'
-		fi
-	fi
-fi
-rm -f /tmp/arNslookup/$$
-}
-
 # 更新记录信息
 # 参数: 主域名 子域名
 arDdnsUpdate() {
@@ -375,26 +317,24 @@ while [ -z "$qcloud_record_id" ] ; do
 	I=$(($I - 1))
 	[ $I -lt 0 ] && break
 	# 获得记录ID
-	timestamp=`date +%s`
 	qcloud_record_id=`query_recordid | get_recordid`
 	echo "recordID $qcloud_record_id"
 	sleep 1
 done
-	timestamp=`date +%s`
 if [ -z "$qcloud_record_id" ] ; then
-	qcloud_record_id=`add_record | get_codeDesc`
+	qcloud_record_id=`add_record | get_Message`
 	echo "added record $qcloud_record_id"
 	logger -t "【qcloud动态域名】" "添加的记录  $qcloud_record_id"
 else
-	qcloud_record_id=`update_record $qcloud_record_id | get_codeDesc`
+	qcloud_record_id=`update_record $qcloud_record_id | get_Message`
 	echo "updated record $qcloud_record_id"
 	logger -t "【qcloud动态域名】" "更新的记录  $qcloud_record_id"
 fi
 # save to file
-if [ "$qcloud_record_id" != "Success" ] ; then
+if [ ! -z "$qcloud_record_id" ] ; then
 	# failed
 	nvram set qcloud_last_act="`date "+%Y-%m-%d %H:%M:%S"`   更新失败"
-	logger -t "【qcloud动态域名】" "更新失败"
+	logger -t "【qcloud动态域名】" "更新失败: qcloud_record_id"
 	return 1
 else
 	nvram set qcloud_last_act="`date "+%Y-%m-%d %H:%M:%S"`   成功更新：$hostIP"
@@ -489,13 +429,13 @@ arIpAddress () {
 # 获得外网地址
 curltest=`which curl`
 if [ -z "$curltest" ] || [ ! -s "`which curl`" ] ; then
-    #wget -T 5 -t 3 --user-agent "$user_agent" --quiet --output-document=- "https://www.cloudflare.com/cdn-cgi/trace" | awk -F= '/ip/{print $2}'
+    #wget -T 5 -t 3 --user-agent "$user_agent" --quiet --output-document=- "https://1.0.0.2/cdn-cgi/trace" | awk -F= '/ip/{print $2}'
     #wget -T 5 -t 3 --user-agent "$user_agent" --quiet --output-document=- "http://myip.ipip.net" | grep "当前 IP" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
     wget -T 5 -t 3 --user-agent "$user_agent" --quiet --output-document=- "http://members.3322.org/dyndns/getip" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
     #wget -T 5 -t 3 --user-agent "$user_agent" --quiet --output-document=- "ip.3322.net" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
     #wget -T 5 -t 3 --user-agent "$user_agent" --quiet --output-document=- "http://ddns.oray.com/checkip" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
 else
-    #curl -L --user-agent "$user_agent" -s "https://www.cloudflare.com/cdn-cgi/trace" | awk -F= '/ip/{print $2}'
+    #curl -L --user-agent "$user_agent" -s "https://1.0.0.2/cdn-cgi/trace" | awk -F= '/ip/{print $2}'
     #curl -L --user-agent "$user_agent" -s "http://myip.ipip.net" | grep "当前 IP" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
     curl -L --user-agent "$user_agent" -s "http://members.3322.org/dyndns/getip" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
     #curl -L --user-agent "$user_agent" -s ip.3322.net | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
@@ -506,7 +446,7 @@ arIpAddress6 () {
 # IPv6地址获取
 # 因为一般ipv6没有nat ipv6的获得可以本机获得
 ifconfig $(nvram get wan0_ifname_t) | awk '/Global/{print $3}' | awk -F/ '{print $1}'
-#curl -6 -s https://www.cloudflare.com/cdn-cgi/trace | awk -F= '/ip/{print $2}'
+#curl -6 -L --user-agent "$user_agent" -s "https://[2606:4700:4700::1002]/cdn-cgi/trace" | awk -F= '/ip/{print $2}'
 }
 if [ "$IPv6_neighbor" != "1" ] ; then
 if [ "$IPv6" = "1" ] ; then

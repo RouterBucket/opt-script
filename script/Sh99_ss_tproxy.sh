@@ -112,7 +112,7 @@ if [ "$1" = "x" ] ; then
 	ss_tproxy_renum=${ss_tproxy_renum:-"0"}
 	ss_tproxy_renum=`expr $ss_tproxy_renum + 1`
 	nvram set ss_tproxy_renum="$ss_tproxy_renum"
-	if [ "$ss_tproxy_renum" -gt "2" ] ; then
+	if [ "$ss_tproxy_renum" -gt "3" ] ; then
 		I=1
 		echo $I > $relock
 		logger -t "【ss_tproxy】" "多次尝试启动失败，等待【"`cat $relock`"分钟】后自动尝试重新启动"
@@ -123,7 +123,7 @@ if [ "$1" = "x" ] ; then
 			[ "$(nvram get ss_tproxy_renum)" = "0" ] && exit 0
 			[ $I -lt 0 ] && break
 		done
-		nvram set ss_tproxy_renum="0"
+		nvram set ss_tproxy_renum="1"
 	fi
 	[ -f $relock ] && rm -f $relock
 fi
@@ -276,9 +276,10 @@ done
 ss_tproxy_close () {
 kill_ps "Sh99_ss_tproxy.sh keep"
 sed -Ei '/【ss_tproxy】|^$/d' /tmp/script/_opt_script_check
+ss_tproxy_run "flush_postrule"
 ss_tproxy_run "stop"
 nvram set ss_tproxy_auser="$auser_a"
-restart_dhcpd
+restart_on_dhcpd
 killall ss_tproxy sh_ss_tproxy.sh
 killall -9 ss_tproxy sh_ss_tproxy.sh
 /etc/storage/script/sh_ezscript.sh 3 & #更新按钮状态
@@ -508,7 +509,7 @@ LAN_AC_IP='0' # 默认值 0
 ## opts
 opts_ss_netstat='auto'                  # auto/ss/netstat，用哪个端口检测工具，见 README
 opts_ping_cmd_to_use='auto'             # auto/standalone/parameter，ping 相关，见 README
-opts_hostname_resolver='auto'           # auto/dig/getent/ping，用哪个解析工具，见 README
+opts_hostname_resolver='auto'           # auto/doh/dig/getent/ping，用哪个解析工具，见 README
 opts_overwrite_resolv='false'           # true/false，定义如何修改 resolv.conf，见 README
 opts_ip_for_check_net='223.5.5.5'    # 检测外网是否可访问的 IP，ping，留空表示跳过此检查
 

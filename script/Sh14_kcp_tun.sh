@@ -74,7 +74,7 @@ if [ "$1" = "x" ] ; then
 	kcptun_renum=${kcptun_renum:-"0"}
 	kcptun_renum=`expr $kcptun_renum + 1`
 	nvram set kcptun_renum="$kcptun_renum"
-	if [ "$kcptun_renum" -gt "2" ] ; then
+	if [ "$kcptun_renum" -gt "3" ] ; then
 		I=19
 		echo $I > $relock
 		logger -t "【kcptun】" "多次尝试启动失败，等待【"`cat $relock`"分钟】后自动尝试重新启动"
@@ -85,7 +85,7 @@ if [ "$1" = "x" ] ; then
 			[ "$(nvram get kcptun_renum)" = "0" ] && exit 0
 			[ $I -lt 0 ] && break
 		done
-		nvram set kcptun_renum="0"
+		nvram set kcptun_renum="1"
 	fi
 	[ -f $relock ] && rm -f $relock
 fi
@@ -195,6 +195,19 @@ kcptun_v=`$SVC_PATH -v | awk '{print $3}'`
 nvram set kcptun_v=$kcptun_v
 logger -t "【kcptun】" "kcptun-version: $kcptun_v"
 logger -t "【kcptun】" "运行 kcptun_script"
+gid_owner="0"
+su_cmd="eval"
+NUM=`iptables -m owner -h 2>&1 | grep owner | wc -l`
+hash su 2>/dev/null && su_x="1"
+hash su 2>/dev/null || su_x="0"
+if [ "$NUM" -ge "3" ] && [ "$su_x" = "1" ] ; then
+	addgroup -g 1321 ‍✈️
+	adduser -G ‍✈️ -u 1321 ‍✈️ -D -S -H -s /bin/sh
+	sed -Ei s/1321:1321/0:1321/g /etc/passwd
+	su_cmd="su ‍✈️ -c "
+	gid_owner="1321"
+fi
+nvram set gid_owner="$gid_owner"
 
 if [ -z $(echo $kcptun_server | grep : | grep -v "\.") ] ; then 
 resolveip=`ping -4 -n -q -c1 -w1 -W1 $kcptun_server | head -n1 | sed -r 's/\(|\)/|/g' | awk -F'|' '{print $2}'`
@@ -217,7 +230,7 @@ sed -Ei '/^$/d' /etc/storage/kcptun_script.sh
 
 cat >> "/etc/storage/kcptun_script.sh" <<-EUI
 # UI设置自动生成  客户端启动参数
-$SVC_PATH $kcptun_user -r "$kcptun_s_server:$kcptun_sport" -l ":$kcptun_lport" -key $kcptun_key -mtu $kcptun_mtu -sndwnd $kcptun_sndwnd -rcvwnd $kcptun_rcvwnd -crypt $kcptun_crypt -mode $kcptun_mode -dscp $kcptun_dscp -datashard $kcptun_datashard -parityshard $kcptun_parityshard -autoexpire $kcptun_autoexpire -nocomp $cmd_log & #UI设置自动生成
+eval "$su_cmd" '$SVC_PATH $kcptun_user -r "$kcptun_s_server:$kcptun_sport" -l ":$kcptun_lport" -key $kcptun_key -mtu $kcptun_mtu -sndwnd $kcptun_sndwnd -rcvwnd $kcptun_rcvwnd -crypt $kcptun_crypt -mode $kcptun_mode -dscp $kcptun_dscp -datashard $kcptun_datashard -parityshard $kcptun_parityshard -autoexpire $kcptun_autoexpire -nocomp $cmd_log' & #UI设置自动生成
 # UI设置自动生成  默认启用 -nocomp 参数,需在服务端使用此参数来禁止压缩传输
 EUI
 
@@ -231,7 +244,7 @@ cat >> "/etc/storage/kcptun_script.sh" <<-EUI
 EUI
 
 /etc/storage/kcptun_script.sh &
-restart_dhcpd
+restart_on_dhcpd
 sleep 4
 [ ! -z "$(ps -w | grep "$kcptun_path" | grep -v grep )" ] && logger -t "【kcptun】" "启动成功" && kcptun_restart o
 [ -z "$(ps -w | grep "$kcptun_path" | grep -v grep )" ] && logger -t "【kcptun】" "启动失败, 注意检查端口是否有冲突,程序是否下载完整,10 秒后自动尝试重新启动" && sleep 10 && kcptun_restart x
@@ -241,63 +254,6 @@ eval "$scriptfilepath keep &"
 exit 0
 }
 
-arNslookup() {
-mkdir -p /tmp/arNslookup
-nslookup $1 | tail -n +3 | grep "Address" | awk '{print $3}'| grep -v ":" > /tmp/arNslookup/$$ &
-I=5
-while [ ! -s /tmp/arNslookup/$$ ] ; do
-		I=$(($I - 1))
-		[ $I -lt 0 ] && break
-		sleep 1
-done
-killall nslookup 
-if [ -s /tmp/arNslookup/$$ ] ; then
-cat /tmp/arNslookup/$$ | sort -u | grep -v "^$"
-else
-	curltest=`which curl`
-	if [ -z "$curltest" ] || [ ! -s "`which curl`" ] ; then
-		Address="`wget -T 5 -t 3 --user-agent "$user_agent" --quiet --output-document=- http://119.29.29.29/d?dn=$1`"
-		if [ $? -eq 0 ]; then
-		echo "$Address" |  sed s/\;/"\n"/g | grep -E -o '([0-9]+\.){3}[0-9]+'
-		fi
-	else
-		Address="`curl --user-agent "$user_agent" -s http://119.29.29.29/d?dn=$1`"
-		if [ $? -eq 0 ]; then
-		echo "$Address" |  sed s/\;/"\n"/g | grep -E -o '([0-9]+\.){3}[0-9]+'
-		fi
-	fi
-fi
-rm -f /tmp/arNslookup/$$
-}
-
-arNslookup6() {
-mkdir -p /tmp/arNslookup
-nslookup $1 | tail -n +3 | grep "Address" | awk '{print $3}'| grep ":" > /tmp/arNslookup/$$ &
-I=5
-while [ ! -s /tmp/arNslookup/$$ ] ; do
-		I=$(($I - 1))
-		[ $I -lt 0 ] && break
-		sleep 1
-done
-killall nslookup 
-if [ -s /tmp/arNslookup/$$ ] ; then
-	cat /tmp/arNslookup/$$ | sort -u | grep -v "^$"
-else
-	curltest=`which curl`
-	if [ -z "$curltest" ] || [ ! -s "`which curl`" ] ; then
-		Address="$(wget -T 5 -t 3 --user-agent "$user_agent" --quiet --output-document=- --header 'accept: application/dns-json' 'https://cloudflare-dns.com/dns-query?name='"$1"'&type=AAAA')"
-		if [ $? -eq 0 ]; then
-		echo "$Address" | grep -Eo "data\":\"[^\"]+" | sed "s/data\":\"//g" | sed -n '1p'
-		fi
-	else
-		Address="$(curl --user-agent "$user_agent" -s -H 'accept: application/dns-json' 'https://cloudflare-dns.com/dns-query?name='"$1"'&type=AAAA')"
-		if [ $? -eq 0 ]; then
-		echo "$Address" | grep -Eo "data\":\"[^\"]+" | sed "s/data\":\"//g" | sed -n '1p'
-		fi
-	fi
-fi
-rm -f /tmp/arNslookup/$$
-}
 initopt () {
 optPath=`grep ' /opt ' /proc/mounts | grep tmpfs`
 [ ! -z "$optPath" ] && return

@@ -124,7 +124,7 @@ if [ "$1" = "x" ] ; then
 	v2ray_renum=${v2ray_renum:-"0"}
 	v2ray_renum=`expr $v2ray_renum + 1`
 	nvram set v2ray_renum="$v2ray_renum"
-	if [ "$v2ray_renum" -gt "2" ] ; then
+	if [ "$v2ray_renum" -gt "3" ] ; then
 		I=19
 		echo $I > $relock
 		logger -t "【v2ray】" "多次尝试启动失败，等待【"`cat $relock`"分钟】后自动尝试重新启动"
@@ -135,7 +135,7 @@ if [ "$1" = "x" ] ; then
 			[ "$(nvram get v2ray_renum)" = "0" ] && exit 0
 			[ $I -lt 0 ] && break
 		done
-		nvram set v2ray_renum="0"
+		nvram set v2ray_renum="1"
 	fi
 	[ -f $relock ] && rm -f $relock
 fi
@@ -310,7 +310,7 @@ ss_internet="$(nvram get ss_internet)"
 rebss=`expr $rebss + 1`
 nvram set ss_rebss_b="$rebss"
 logger -t "【v2ray】" " v2ray 服务器 【$app_98】 检测到问题"
-#restart_dhcpd
+#restart_on_dhcpd
 #/etc/storage/crontabs_script.sh &
 
 #404
@@ -582,7 +582,7 @@ cd "$(dirname "$v2ray_path")"
 eval "$su_cmd" '"export V2RAY_CONF_GEOLOADER=memconservative;cmd_name=v2ray;'"$su_cmd2"' $cmd_log"' &
 #eval "$su_cmd2 $cmd_log" &
 sleep 4
-#restart_dhcpd
+#restart_on_dhcpd
 [ ! -z "$(ps -w | grep "$v2ray_path" | grep -v grep )" ] && logger -t "【v2ray】" "启动成功 $v2ray_v " && v2ray_restart o
 [ -z "$(ps -w | grep "$v2ray_path" | grep -v grep )" ] && logger -t "【v2ray】" "启动失败,10 秒后自动尝试重新启动" && sleep 10 && v2ray_restart x
 
@@ -619,7 +619,7 @@ fi
 Sh99_ss_tproxy.sh auser_check "Sh18_v2ray.sh"
 ss_tproxy_set "Sh18_v2ray.sh"
 Sh99_ss_tproxy.sh on_start "Sh18_v2ray.sh"
-#restart_dhcpd
+#restart_on_dhcpd
 
 logger -t "【v2ray】" "载入 透明代理 转发规则设置"
 
@@ -661,9 +661,8 @@ ss_tproxy_mode_x=`nvram get app_110`
 [ "$ss_ip46" = "0" ] && { sstp_set ipv4='true' ; sstp_set ipv6='false' ; }
 [ "$ss_ip46" = "1" ] && { sstp_set ipv4='false' ; sstp_set ipv6='true' ; }
 [ "$ss_ip46" = "2" ] && { sstp_set ipv4='true' ; sstp_set ipv6='true' ; }
- # sstp_set ipv4='false' ; sstp_set ipv6='true' ;
- # sstp_set ipv4='true' ; sstp_set ipv6='true' ;
-sstp_set tproxy='false' # true:TPROXY+TPROXY; false:REDIRECT+TPROXY
+[ "$ss_ip46" = "0" ] && sstp_set tproxy='false' # true:TPROXY+TPROXY; false:REDIRECT+TPROXY
+[ "$ss_ip46" != "0" ] && sstp_set tproxy='true'
 sstp_set tcponly="$tcponly" # true:仅代理TCP流量; false:代理TCP和UDP流量
 sstp_set selfonly='false'  # true:仅代理本机流量; false:代理本机及"内网"流量
 nvram set app_112="$dns_start_dnsproxy"      #app_112 0:自动开启第三方 DNS 程序(dnsproxy) ; 1:跳过自动开启第三方 DNS 程序但是继续把DNS绑定到 8053 端口的程序
@@ -685,7 +684,7 @@ DNS_china=`nvram get wan0_dns |cut -d ' ' -f1`
 sstp_set dns_direct="$DNS_china"
 sstp_set dns_direct6='240C::6666'
 sstp_set dns_remote='8.8.8.8#53'
-sstp_set dns_remote6='2001:4860:4860::8888#53'
+sstp_set dns_remote6='::1#8053'
 [ "$mk_mode_routing" == "1" ] && [ "$transocks_mode_x" == "3" ] && sstp_set dns_direct='8.8.8.8' # 回国模式
 [ "$mk_mode_routing" == "1" ] && [ "$transocks_mode_x" == "3" ] && sstp_set dns_direct6='2001:4860:4860::8888' # 回国模式
 [ "$mk_mode_routing" == "1" ] && [ "$transocks_mode_x" == "3" ] && sstp_set dns_remote='223.5.5.5#53' # 回国模式
@@ -876,6 +875,11 @@ echo '{
         "followRedirect": true
       },
       "tag": "redir_1099",
+      "streamSettings": {
+        "sockopt": {
+          "tproxy": "redirect"
+        }
+      },
       "sniffing": {
         "enabled": false,
         "destOverride": [
@@ -893,6 +897,7 @@ echo '{
       "streamSettings": {
         "network": "",
         "security": "",
+        "realitySettings": {},
         "tlsSettings": {},
         "xtlsSettings": {},
         "tcpSettings": {},
@@ -958,6 +963,7 @@ fi
 fi
 logger -t "【v2ray】" "开始生成 ss_tproxy 配置"
 mk_ss_tproxy=$(json_int_ss_tproxy)
+[ "$ss_ip46" != "0" ] && mk_ss_tproxy=$(echo $mk_ss_tproxy| jq --raw-output 'setpath(["inbounds",1,"streamSettings","sockopt","tproxy"];"tproxy")')
 mk_ss_tproxy=$(echo $mk_ss_tproxy| jq --raw-output 'setpath(["inbounds",0,"listen"];"0.0.0.0")')
 mk_ss_tproxy=$(echo $mk_ss_tproxy| jq --raw-output 'setpath(["inbounds",0,"settings","ip"];"127.0.0.1")')
 logger -t "【v2ray】" "提取 outbounds 生成 ss_tproxy 配置"
@@ -1119,7 +1125,8 @@ mk_vmess=$(echo $mk_vmess| jq --raw-output 'delpaths([["dns","servers",4]])')
 fi
 [ "$ss_ip46" = "0" ] && mk_vmess=$(echo $mk_vmess| jq --raw-output 'setpath(["dns","queryStrategy"];"UseIPv4")')
 [ "$ss_ip46" = "1" ] && mk_vmess=$(echo $mk_vmess| jq --raw-output 'setpath(["dns","queryStrategy"];"UseIPv6")')
-[ "$ss_ip46" = "2" ] && mk_vmess=$(echo $mk_vmess| jq --raw-output 'setpath(["dns","queryStrategy"];"UseIP")')
+[ "$ss_ip46" = "2" ] && mk_vmess=$(echo $mk_vmess| jq --raw-output 'setpath(["dns","queryStrategy"];"UseIPv4")')
+[ "$ss_ip46" != "0" ] && mk_vmess=$(echo $mk_vmess| jq --raw-output 'setpath(["inbounds",1,"streamSettings","sockopt","tproxy"];"tproxy")')
 echo $mk_vmess| jq --raw-output '.' > /tmp/vmess/mk_vmess.json
 if [ ! -s /tmp/vmess/mk_vmess.json ] ; then
 	logger -t "【v2ray】" "错误！生成配置为空，请看看哪里问题？"
@@ -1142,7 +1149,7 @@ mk_vmess=$(echo $mk_vmess | jq --raw-output 'setpath(["vnext",0,"users",0,"id"];
 mk_vmess=$(echo $mk_vmess | jq --raw-output 'setpath(["vnext",0,"port"];'$vless_link_remote_port')')
 if [ "$link_protocol" == "vless" ] ; then
 mk_vmess=$(echo $mk_vmess | jq --raw-output 'setpath(["vnext",0,"users",0,"encryption"];"'$vless_link_encryption'")')
-if [ "$vless_link_security" == "tls" ] || [ "$vless_link_security" == "xtls" ] ; then
+if [ "$vless_link_security" == "tls" ] || [ "$vless_link_security" == "xtls" ] || [ "$vless_link_security" == "reality" ] ; then
 [ ! -z "$vless_link_flow" ] && mk_vmess=$(echo $mk_vmess | jq --raw-output 'setpath(["vnext",0,"users",0,"flow"];"'$vless_link_flow'")')
 else
 mk_vmess=$(echo $mk_vmess | jq --raw-output 'delpaths([["vnext",0,"users",0,"flow"]])')
@@ -1164,6 +1171,15 @@ mk_vmess=$(echo $mk_vmess | jq --raw-output 'setpath(["network"];"'$vless_link_t
 # allowInsecure: 是否允许不安全连接（仅用于客户端）。默认值为 false。当值为 true 时，V2Ray 不会检查远端主机所提供的 TLS 证书的有效性。
 [ -z "$vless_link_allowInsecure" ] && vless_link_allowInsecure=`nvram get app_73`
 [ "$vless_link_allowInsecure" == "1" ] && vless_link_allowInsecure="true"
+# 配置 realitySettings star
+if [ "$vless_link_security" == "reality" ] ; then
+mk_vmess=$(echo $mk_vmess | jq --raw-output 'setpath(["realitySettings","fingerprint"];"'$vless_link_fp'")')
+mk_vmess=$(echo $mk_vmess | jq --raw-output 'setpath(["realitySettings","serverName"];"'$vless_link_sni'")')
+mk_vmess=$(echo $mk_vmess | jq --raw-output 'setpath(["realitySettings","publicKey"];"'$vless_link_pbk'")')
+mk_vmess=$(echo $mk_vmess | jq --raw-output 'setpath(["realitySettings","shortId"];"'$vless_link_sid'")')
+mk_vmess=$(echo $mk_vmess | jq --raw-output 'setpath(["realitySettings","spiderX"];"'$vless_link_spx'")')
+fi
+# 配置 realitySettings end
 # 配置 tlsSettings star
 if [ "$vless_link_security" == "tls" ] ; then
 if [ "$vless_link_allowInsecure" == "true" ] || [ "$vless_link_allowInsecure" == "false" ] ; then
@@ -1177,7 +1193,7 @@ else
 	mk_vmess=$(echo $mk_vmess | jq --raw-output 'delpaths([["tlsSettings","serverName"]])')
 fi
 if [ "$vless_link_flow" == "xtls-rprx-vision" ] ; then
-mk_vmess=$(echo $mk_vmess | jq --raw-output 'setpath(["tlsSettings","fingerprint"];"chrome")')
+mk_vmess=$(echo $mk_vmess | jq --raw-output 'setpath(["tlsSettings","fingerprint"];"'$vless_link_fp'")')
 fi
 if [ ! -z "$vless_link_alpn" ] ; then
 	vless_link_alpn=$(echo $vless_link_alpn | sed 's/,/ /g')
@@ -1334,6 +1350,9 @@ json_int_vmess_streamSettings () {
 echo '{
   "network": "",
   "security": "",
+  "realitySettings": {
+    "show": false
+  },
   "tlsSettings": {
     "allowInsecure": true
   },
@@ -1488,6 +1507,10 @@ echo '{
         "destOverride": [
           "http",
           "tls"
+        ],
+        "domainsExcluded": [
+          "mijia cloud",
+          "courier.push.apple.com"
         ]
       }
     },
@@ -1501,11 +1524,20 @@ echo '{
         "followRedirect": true
       },
       "tag": "redir_1099",
+      "streamSettings": {
+        "sockopt": {
+          "tproxy": "redirect"
+        }
+      },
       "sniffing": {
         "enabled": true,
         "destOverride": [
           "http",
           "tls"
+        ],
+        "domainsExcluded": [
+          "mijia cloud",
+          "courier.push.apple.com"
         ]
       }
     },
@@ -1528,6 +1560,7 @@ echo '{
       "streamSettings": {
         "network": "",
         "security": "",
+        "realitySettings": {},
         "tlsSettings": {},
         "xtlsSettings": {},
         "tcpSettings": {},
@@ -1595,7 +1628,9 @@ echo '{
         "address": "223.5.5.5",
         "port": 53,
         "domains": [
-          "geosite:cn"
+          "geosite:cn",
+          "geosite:apple",
+          "domain:courier.push.apple.com"
         ],
         "expectIPs": [
           "geoip:cn"
@@ -1685,7 +1720,9 @@ echo '{
           "domain:baidu.com",
           "domain:qq.com",
           "domain:taobao.com",
-          "geosite:cn"
+          "geosite:cn",
+          "geosite:apple",
+          "domain:courier.push.apple.com"
         ],
         "outboundTag": "direct"
       },

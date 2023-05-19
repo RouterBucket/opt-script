@@ -1,6 +1,7 @@
 #!/bin/bash
 #copyright by hiboy
 source /etc/storage/script/init.sh
+source /etc/storage/script/sh_link.sh
 TAG="SSTP"		  # iptables tag
 FWI="/tmp/firewall.clash.pdcn"
 clash_enable=`nvram get app_88`
@@ -97,7 +98,7 @@ if [ "$1" = "x" ] ; then
 	clash_renum=${clash_renum:-"0"}
 	clash_renum=`expr $clash_renum + 1`
 	nvram set clash_renum="$clash_renum"
-	if [ "$clash_renum" -gt "2" ] ; then
+	if [ "$clash_renum" -gt "3" ] ; then
 		I=19
 		echo $I > $relock
 		logger -t "【clash】" "多次尝试启动失败，等待【"`cat $relock`"分钟】后自动尝试重新启动"
@@ -108,7 +109,7 @@ if [ "$1" = "x" ] ; then
 			[ "$(nvram get clash_renum)" = "0" ] && exit 0
 			[ $I -lt 0 ] && break
 		done
-		nvram set clash_renum="0"
+		nvram set clash_renum="1"
 	fi
 	[ -f $relock ] && rm -f $relock
 fi
@@ -223,7 +224,7 @@ sed -Ei '/【clash】|^$/d' /tmp/script/_opt_script_check
 Sh99_ss_tproxy.sh off_stop "Sh10_clash.sh"
 killall clash
 killall -9 clash
-restart_dhcpd
+restart_on_dhcpd
 /etc/storage/script/sh_ezscript.sh 3 & #更新按钮状态
 kill_ps "/tmp/script/_app18"
 kill_ps "_clash.sh"
@@ -328,15 +329,12 @@ chmod 644 /opt/etc/ssl/certs -R
 chmod 777 /opt/etc/ssl/certs
 chmod 644 /etc/ssl/certs -R
 chmod 777 /etc/ssl/certs
+$SVC_PATH -t -d /opt/app/clash/config >/dev/null
+if [ "$?" = 0 ];then
 su_cmd2="$SVC_PATH -d /opt/app/clash/config"
 eval "$su_cmd" '"cmd_name=clash && '"$su_cmd2"' $cmd_log"' &
-sleep 3
-if [ "$clash_mixed" == "1" ] ; then
-logger -t "【clash】" "双开 clash 开启 mixed 代理"
-su_cmd2="$SVC_PATH -d /opt/app/clash/config2"
-eval "$su_cmd" '"cmd_name=clash && '"$su_cmd2"' $cmd_log"' &
+sleep 5
 fi
-sleep 3
 [ ! -z "`pidof clash`" ] && logger -t "【clash】" "启动成功" && clash_restart o
 [ -z "`pidof clash`" ] && logger -t "【clash】" "启动失败, 注意检clash是否下载完整,10 秒后自动尝试重新启动" && sleep 10 && clash_restart x
 clash_get_status
@@ -355,7 +353,7 @@ logger -t "【clash】" "已经启动 chinadns 防止域名污染"
 else
 logger -t "【clash】" "启动 clash DNS 防止域名污染【端口 ::1#8053】"
 fi
-restart_dhcpd
+restart_on_dhcpd
 logger -t "【clash】" "启动后若发现一些网站打不开, 估计是 DNS 被污染了. 解决 DNS 被污染方法："
 logger -t "【clash】" "①电脑设置 DNS 自动获取路由 ip。检查 hosts 是否有错误规则。"
 logger -t "【clash】" "②电脑运行 cmd 输入【ipconfig /flushdns】, 清理浏览器缓存。"
@@ -410,9 +408,8 @@ ss_tproxy_mode_x=`nvram get app_110`
 [ "$ss_ip46" = "0" ] && { sstp_set ipv4='true' ; sstp_set ipv6='false' ; }
 [ "$ss_ip46" = "1" ] && { sstp_set ipv4='false' ; sstp_set ipv6='true' ; }
 [ "$ss_ip46" = "2" ] && { sstp_set ipv4='true' ; sstp_set ipv6='true' ; }
- # sstp_set ipv4='false' ; sstp_set ipv6='true' ;
- # sstp_set ipv4='true' ; sstp_set ipv6='true' ;
-sstp_set tproxy='false' # true:TPROXY+TPROXY; false:REDIRECT+TPROXY
+[ "$ss_ip46" = "0" ] && sstp_set tproxy='false' # true:TPROXY+TPROXY; false:REDIRECT+TPROXY
+[ "$ss_ip46" != "0" ] && sstp_set tproxy='true'
 sstp_set tcponly="$tcponly" # true:仅代理TCP流量; false:代理TCP和UDP流量
 sstp_set selfonly='false'  # true:仅代理本机流量; false:代理本机及"内网"流量
 nvram set app_112="$dns_start_dnsproxy"      #app_112 0:自动开启第三方 DNS 程序(dnsproxy) ; 1:跳过自动开启第三方 DNS 程序但是继续把DNS绑定到 8053 端口的程序
@@ -434,7 +431,7 @@ DNS_china=`nvram get wan0_dns |cut -d ' ' -f1`
 sstp_set dns_direct="$DNS_china"
 sstp_set dns_direct6='240C::6666'
 sstp_set dns_remote='8.8.8.8#53'
-sstp_set dns_remote6='2001:4860:4860::8888#53'
+sstp_set dns_remote6='::1#8053'
 [ "$clash_mode_x" = "3" ] && sstp_set dns_direct='8.8.8.8' # 回国模式
 [ "$clash_mode_x" = "3" ] && sstp_set dns_direct6='2001:4860:4860::8888' # 回国模式
 [ "$clash_mode_x" = "3" ] && sstp_set dns_remote='223.5.5.5#53' # 回国模式
@@ -547,6 +544,10 @@ if [ ! -s $yml_tmp ] ; then
 	logger -t "【clash】" "错误！！clash 服务器订阅文件获取失败！请检查地址"
 	return
 else
+	if is_2_base64 "$(cat $yml_tmp)" ; then 
+	# 需2次解码
+	echo "$(echo -n "$(cat $yml_tmp)" | sed -e "s/_/\//g" | sed -e "s/-/\+/g" | sed 's/$/&====/g' | base64 -d)" > $yml_tmp
+	fi
 	dos2unix $yml_tmp
 	sed -Ei s@\<\/textarea\>@@g $yml_tmp
 	cp -f $yml_tmp /etc/storage/app_20.sh
@@ -645,7 +646,7 @@ dns:
   listen: 0.0.0.0:8053
   default-nameserver :
     - 8.8.8.8
-  enhanced-mode: redir-host
+  enhanced-mode: fake-ip
   # enhanced-mode: redir-host # 或 fake-ip
   # # fake-ip-range: 198.18.0.1/16 # 如果你不知道这个参数的作用，请勿修改
   # # 实验性功能 hosts, 支持通配符 (例如 *.clash.dev 甚至 *.foo.*.example.com)
@@ -654,6 +655,12 @@ dns:
   # hosts:
   #   '*.clash.dev': 127.0.0.1
   #   'alpha.clash.dev': '::1'
+  use-hosts: true # 查询 hosts
+  # 配置不使用fake-ip的域名
+  fake-ip-filter:
+    - '+.*'
+  #   - '*.lan'
+  #   - localhost.ptlogin2.qq.com
 
   nameserver:
     - 223.5.5.5
@@ -697,6 +704,26 @@ dns:
 EEE
 	chmod 755 "$app_21"
 fi
+
+
+if [ -z "$(cat $app_21 | grep sniffer)" ] ; then
+	cat >> "$app_21" <<-\EEE
+sniffer:
+  enable: true
+  override-destination: true
+  sniff:
+    http: { ports: [80, 8080] }
+    tls: { ports: [443, 8443] }
+  skip-domain:
+    #Apple
+    - 'courier.push.apple.com'
+    #mi
+    - 'Mijia Cloud'
+
+EEE
+	chmod 755 "$app_21"
+fi
+
 
 app_33="/etc/storage/app_33.sh"
 if [ ! -f "$app_33" ] || [ ! -s "$app_33" ] ; then
@@ -751,10 +778,6 @@ echo '- command: update
     SS本地代理
 ' | yq w -i -s - $config_yml
 fi
-if [ "$1" == "config2" ] ; then
-# 双开 clash 时，更新修改 ② 启动 clash 的配置代理节点
-config_yml="/opt/app/clash/config2/config.yaml"
-fi
 EEE
 	chmod 755 "$app_33"
 fi
@@ -808,9 +831,9 @@ rm_temp
 fi
 mkdir -p /opt/app/clash/config
 mkdir -p /etc/storage/clash/config
-[ -f /opt/app/clash/config/.cache ] && [ ! -f /etc/storage/clash/config/.cache ] && cp -f /opt/app/clash/config/.cache /etc/storage/clash/config/.cache
-touch /etc/storage/clash/config/.cache
-ln -sf /etc/storage/clash/config/.cache /opt/app/clash/config/.cache
+[ -f /opt/app/clash/config/cache.db ] && [ ! -f /etc/storage/clash/config/cache.db ] && cp -f /opt/app/clash/config/cache.db /etc/storage/clash/config/cache.db
+touch /etc/storage/clash/config/cache.db
+ln -sf /etc/storage/clash/config/cache.db /opt/app/clash/config/cache.db
 if [ "$app_default_config" = "1" ] ; then
 logger -t "【clash】" "不改写配置，直接使用原始配置启动！（有可能端口不匹配导致功能失效）"
 logger -t "【clash】" "请手动修改配置， HTTP 代理端口：7890"
@@ -848,7 +871,7 @@ cp -f /etc/storage/app_21.sh $config_dns_yml
 sed -Ei '/^$/d' $config_dns_yml
 fi
 fi
-if [ "$ss_ip46" = "0" ] ; then
+if [ "$ss_ip46" = "0" ] || [ "$ss_ip46" = "2" ] ; then
 yq w -i $config_dns_yml dns.ipv6 false
 else
 yq w -i $config_dns_yml dns.ipv6 true
@@ -906,17 +929,40 @@ else
 yq d -i $config_yml socks-port
 rm_temp
 fi
+if [ "$clash_mixed" != "0" ] ; then
+yq w -i $config_yml mixed-port 7893
+rm_temp
+logger -t "【clash】" "SOCKS5 代理端口：7891"
+else
+yq d -i $config_yml mixed-port
+rm_temp
+fi
 if [ "$clash_follow" != "0" ] ; then
+if [ "$ss_ip46" = "0" ] ; then
+yq d -i $config_yml tproxy-port
 yq w -i $config_yml redir-port 7892
 rm_temp
 logger -t "【clash】" "redir 代理端口：7892"
 else
 yq d -i $config_yml redir-port
+yq w -i $config_yml tproxy-port 7892
+rm_temp
+logger -t "【clash】" "tproxy 代理端口：7892"
+fi
+else
+yq d -i $config_yml redir-port
+yq d -i $config_yml tproxy-port
 rm_temp
 fi
-logger -t "【clash】" "删除 Clash 配置文件中原有的 DNS 配置"
+logger -t "【clash】" "删除 Clash 配置文件中原有的 DNS 或其他配置"
 yq d -i $config_yml dns
 rm_temp
+yq d -i $config_yml sniffer
+rm_temp
+[ -s $config_dns_yml ] && eval "$(yq r $config_dns_yml --stripComments | grep -v "^ " | tr -d ":" | awk '{print "yq d -i $config_yml "$1;}')"
+logger -t "【clash】" "将 DNS 或其他配置 /tmp/clash/dns.yml 以覆盖的方式与 $config_yml 合并"
+cat $config_dns_yml >> $config_yml
+#merge_dns_ip
 yq w -i $config_yml external-controller $clash_ui
 rm_temp
 yq w -i $config_yml external-ui "/opt/app/clash/clash_webs/"
@@ -934,60 +980,10 @@ logger -t "【clash】" "yq 初始化 clash 配置错误！请检查配置！"
 logger -t "【clash】" "尝试直接使用原始配置启动！"
 cp -f /etc/storage/app_20.sh $config_yml
 else
-logger -t "【clash】" "将 DNS 配置 /tmp/clash/dns.yml 以覆盖的方式与 $config_yml 合并"
-cat /tmp/clash/dns.yml >> $config_yml
-#yq m -x -i $config_yml /tmp/clash/dns.yml
-#rm_temp
-#merge_dns_ip
 logger -t "【clash】" "初始化 clash 配置完成！实际运行配置：/opt/app/clash/config/config.yaml"
-update_2_yml
-fi
-fi
-}
 
-update_2_yml () {
-[ "$clash_mixed" != "1" ] && return
-logger -t "【clash】" "初始化 clash 双开 mixed 代理"
-mkdir -p /opt/app/clash/config2
-mkdir -p /etc/storage/clash/config2
-[ -f /opt/app/clash/config2/.cache ] && [ ! -f /etc/storage/clash/config2/.cache ] && cp -f /opt/app/clash/config2/.cache /etc/storage/clash/config2/.cache
-touch /etc/storage/clash/config2/.cache
-ln -sf /etc/storage/clash/config2/.cache /opt/app/clash/config2/.cache
-ln -sf /opt/app/clash/config/Country.mmdb /opt/app/clash/config2/Country.mmdb
-config_2_yml="/opt/app/clash/config2/config.yaml"
-rm_temp
-cp -f /opt/app/clash/config/config.yaml $config_2_yml
-rm -f /opt/app/clash/config2/config.yml
-ln -sf $config_2_yml /opt/app/clash/config2/config.yml
-if [ "$clash_input" == "1" ] ; then
-logger -t "【clash】" "配置 clash 添加本地代理节点"
-[ ! -z "$(yq -V 2>&1 | grep 3\.4\.1)" ] && /etc/storage/app_33.sh "config2"
-if [ ! -s $config_2_yml ] ; then
-logger -t "【clash】" "yq 添加本地代理节点 配置错误！请检查配置！"
-cp -f /opt/app/clash/config/config.yaml $config_2_yml
 fi
 fi
-yq d -i $config_2_yml port
-rm_temp
-yq d -i $config_2_yml socks-port
-rm_temp
-yq d -i $config_2_yml redir-port
-rm_temp
-yq d -i $config_2_yml tproxy-port
-rm_temp
-yq d -i $config_2_yml mixed-port
-rm_temp
-yq d -i $config_2_yml dns
-rm_temp
-#yq w -i $config_2_yml dns.listen 9053
-#rm_temp
-#yq d -i $config_2_yml dns.ipv6
-#rm_temp
-yq w -i $config_2_yml mixed-port 7893
-rm_temp
-yq w -i $config_2_yml external-controller "0.0.0.0:9091"
-logger -t "【clash】" "初始化 clash 双开 配置完成！实际运行配置：/opt/app/clash/config2/config.yaml"
-
 }
 
 reload_api () {
@@ -1023,7 +1019,6 @@ fi
 if [ "$1" == "reload" ] ; then
 logger -t "【clash】" "api热重载配置"
 curl -X PUT -w "%{http_code}" -H "Authorization: Bearer $secret" -H "Content-Type: application/json" -d '{"path": "/opt/app/clash/config/config.yaml"}' 'http://127.0.0.1:'"$api_port"'/configs?force=true'
-[ "$clash_mixed" == "1" ] && curl -X PUT -w "%{http_code}" -H "Authorization: Bearer $secret" -H "Content-Type: application/json" -d '{"path": "/opt/app/clash/config2/config.yaml"}' 'http://127.0.0.1:9091/configs?force=true'
 logger -t "【clash】" "api热重载配置，完成！"
 fi
 

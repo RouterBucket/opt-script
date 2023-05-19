@@ -9,6 +9,8 @@ hysteria_follow=`nvram get app_137`
 [ -z $hysteria_follow ] && hysteria_follow=0 && nvram set app_137=0
 transocks_mode_x=`nvram get app_28`
 [ -z $transocks_mode_x ] && transocks_mode_x=0 && nvram set app_28=0
+ss_ip46=`nvram get ss_ip46`
+[ -z $ss_ip46 ] && ss_ip46=0 && nvram set ss_ip46=0
 
 if [ "$hysteria_enable" != "0" ] ; then
 if [ "$hysteria_follow" != 0 ] ; then
@@ -69,7 +71,7 @@ if [ "$1" = "x" ] ; then
 	hysteria_renum=${hysteria_renum:-"0"}
 	hysteria_renum=`expr $hysteria_renum + 1`
 	nvram set hysteria_renum="$hysteria_renum"
-	if [ "$hysteria_renum" -gt "2" ] ; then
+	if [ "$hysteria_renum" -gt "3" ] ; then
 		I=19
 		echo $I > $relock
 		logger -t "【hysteria】" "多次尝试启动失败，等待【"`cat $relock`"分钟】后自动尝试重新启动"
@@ -80,7 +82,7 @@ if [ "$1" = "x" ] ; then
 			[ "$(nvram get hysteria_renum)" = "0" ] && exit 0
 			[ $I -lt 0 ] && break
 		done
-		nvram set hysteria_renum="0"
+		nvram set hysteria_renum="1"
 	fi
 	[ -f $relock ] && rm -f $relock
 fi
@@ -92,7 +94,7 @@ exit 0
 hysteria_get_status () {
 
 A_restart=`nvram get hysteria_status`
-B_restart="$hysteria_enable$chinadns_enable$chinadns_ng_enable$hysteria_follow$transocks_mode_x$ss_udp_enable$app_114"
+B_restart="$hysteria_enable$ss_ip46$chinadns_enable$chinadns_ng_enable$hysteria_follow$transocks_mode_x$ss_udp_enable$app_114"
 B_restart="$B_restart""$(cat /etc/storage/app_34.sh | grep -v '^#' | grep -v "^$")"
 B_restart=`echo -n "$B_restart" | md5sum | sed s/[[:space:]]//g | sed s/-//g`
 cut_B_re
@@ -154,7 +156,7 @@ sed -Ei '/【hysteria】|^$/d' /tmp/script/_opt_script_check
 Sh99_ss_tproxy.sh off_stop "Sh08_hysteria.sh"
 killall hysteria
 killall -9 hysteria
-restart_dhcpd
+restart_on_dhcpd
 /etc/storage/script/sh_ezscript.sh 3 & #更新按钮状态
 kill_ps "/tmp/script/_app24"
 kill_ps "_hysteria.sh"
@@ -224,7 +226,8 @@ fi
 [ "$app_114" = "1" ] && logger -t "【hysteria】" "停止路由自身流量走透明代理"
 fi
 logger -t "【hysteria】" "运行 $SVC_PATH"
-su_cmd2="$SVC_PATH -config /etc/storage/app_34.sh"
+/etc/storage/app_34.sh
+su_cmd2="$SVC_PATH -config /tmp/hysteria.json"
 eval "$su_cmd" '"cmd_name=hysteria && '"$su_cmd2"' $cmd_log"' &
 sleep 4
 [ ! -z "`pidof hysteria`" ] && logger -t "【hysteria】" "启动成功" && hysteria_restart o
@@ -242,7 +245,7 @@ logger -t "【hysteria】" "完成 透明代理 转发规则设置"
 if [ "$chinadns_enable" != "0" ] || [ "$chinadns_ng_enable" != "0" ] ; then
 logger -t "【hysteria】" "已经启动 chinadns 防止域名污染"
 fi
-restart_dhcpd
+restart_on_dhcpd
 logger -t "【hysteria】" "启动后若发现一些网站打不开, 估计是 DNS 被污染了. 解决 DNS 被污染方法："
 logger -t "【hysteria】" "①电脑设置 DNS 自动获取路由 ip。检查 hosts 是否有错误规则。"
 logger -t "【hysteria】" "②电脑运行 cmd 输入【ipconfig /flushdns】, 清理浏览器缓存。"
@@ -271,13 +274,14 @@ ss_tproxy_mode_x=`nvram get app_110`
 [ "$transocks_mode_x" == "1" ] && sstp_set mode='gfwlist'
 [ "$transocks_mode_x" == "2" ] && sstp_set mode='global'
 [ "$transocks_mode_x" == "3" ] && sstp_set mode='chnlist'
-sstp_set ipv4='true' ; sstp_set ipv6='false' ;
- # sstp_set ipv4='false' ; sstp_set ipv6='true' ;
- # sstp_set ipv4='true' ; sstp_set ipv6='true' ;
-sstp_set tproxy='true' # true:TPROXY+TPROXY; false:REDIRECT+TPROXY
+[ "$ss_ip46" = "0" ] && { sstp_set ipv4='true' ; sstp_set ipv6='false' ; }
+[ "$ss_ip46" = "1" ] && { sstp_set ipv4='false' ; sstp_set ipv6='true' ; }
+[ "$ss_ip46" = "2" ] && { sstp_set ipv4='true' ; sstp_set ipv6='true' ; }
+[ "$ss_ip46" = "0" ] && sstp_set tproxy='false' # true:TPROXY+TPROXY; false:REDIRECT+TPROXY
+[ "$ss_ip46" != "0" ] && sstp_set tproxy='true'
 sstp_set tcponly="$tcponly" # true:仅代理TCP流量; false:代理TCP和UDP流量
 sstp_set selfonly='false'  # true:仅代理本机流量; false:代理本机及"内网"流量
-nvram set app_112="0"      #app_112 0:自动开启第三方 DNS 程序(dnsproxy) ; 1:跳过自动开启第三方 DNS 程序但是继续把DNS绑定到 8053 端口的程序
+nvram set app_112="1"      #app_112 0:自动开启第三方 DNS 程序(dnsproxy) ; 1:跳过自动开启第三方 DNS 程序但是继续把DNS绑定到 8053 端口的程序
 #nvram set ss_pdnsd_all="0" # 0使用[本地DNS] + [GFW规则]查询DNS ; 1 使用 8053 端口查询全部 DNS
 #nvram set app_113="0"      #app_113 0:使用 8053 端口查询全部 DNS 时进行 China 域名加速 ; 1:不进行 China 域名加速
 sstp_set uid_owner='0'     # 非 0 时进行用户ID匹配跳过代理本机流量
@@ -286,8 +290,9 @@ sstp_set gid_owner="$gid_owner" # 非 0 时进行组ID匹配跳过代理本机�
 ## proxy
 sstp_set proxy_all_svraddr="/opt/app/ss_tproxy/conf/proxy_all_svraddr.conf"
 sstp_set proxy_svrport='1:65535'
-sstp_set proxy_tcpport='18000'
-sstp_set proxy_udpport='18000'
+[ "$ss_ip46" = "0" ] && sstp_set proxy_tcpport='18000'
+[ "$ss_ip46" != "0" ] && sstp_set proxy_tcpport='18001'
+sstp_set proxy_udpport='18002'
 sstp_set proxy_startcmd='date'
 sstp_set proxy_stopcmd='date'
 ## dns
@@ -296,7 +301,7 @@ DNS_china=`nvram get wan0_dns |cut -d ' ' -f1`
 sstp_set dns_direct="$DNS_china"
 sstp_set dns_direct6='240C::6666'
 sstp_set dns_remote='8.8.8.8#53'
-sstp_set dns_remote6='2001:4860:4860::8888#53'
+sstp_set dns_remote6='::1#8053'
 [ "$transocks_mode_x" == "3" ] && sstp_set dns_direct='8.8.8.8' # 回国模式
 [ "$transocks_mode_x" == "3" ] && sstp_set dns_direct6='2001:4860:4860::8888' # 回国模式
 [ "$transocks_mode_x" == "3" ] && sstp_set dns_remote='223.5.5.5#53' # 回国模式
@@ -372,27 +377,66 @@ fi
 initconfig () {
 
 app_34="/etc/storage/app_34.sh"
-if [ ! -f "$app_34" ] || [ ! -s "$app_34" ] ; then
+if [ ! -f "$app_34" ] || [ ! -s "$app_34" ] || [ -z "$(cat $app_34 | grep "ss_ip46" )" ] ; then
 	cat > "$app_34" <<-\EEE
+#!/bin/bash
+ss_ip46=`nvram get ss_ip46` ; tp_set="4" ;
+[ "$ss_ip46" = "1" ] && tp_set="6" ; [ "$ss_ip46" = "2" ] && tp_set="46" ;
+
+
+# hysteria 配置
+cat > "/tmp/hysteria.json" <<-EEFF
 {
   "server": "example.com:36712",
-  "obfs": "混淆密码",
+  "obfs": "password",
+  "protocol": "udp",
   "up_mbps": 10,
   "down_mbps": 50,
+  "retry": -1,
+  "retry_interval": 10,
+  "quit_on_disconnect": false,
+  "handshake_timeout": 10,
+  "idle_timeout": 100,
+  "hop_interval": 180,
   "socks5": {
-    "listen": "0.0.0.0:1089"
+    "listen": "0.0.0.0:1089",
+    "timeout": 300,
+    "disable_udp": false,
+    "user": "",
+    "password": ""
+  },
+  "relay_tcps": [
+    {
+      "listen": ":8053",
+      "remote": "8.8.8.8:53",
+      "timeout": 300
+    }
+  ],
+  "relay_udps": [
+    {
+      "listen": ":8053",
+      "remote": "8.8.8.8:53",
+      "timeout": 60
+    }
+  ],
+  "redirect_tcp": {
+    "listen": "127.0.0.1:18000",
+    "timeout": 300
   },
   "tproxy_tcp": {
-    "listen": "0.0.0.0:18000",
+    "listen": ":18001",
     "timeout": 300
   },
   "tproxy_udp": {
-    "listen": "0.0.0.1:18000",
+    "listen": ":18002",
     "timeout": 60
   },
-  "resolve_preference": "4",
-  "disable_mtu_discovery": true
+  "disable_mtu_discovery": true,
+  "resolver": "udp://8.8.8.8:53",
+  "resolve_preference": "$tp_set"
 }
+
+EEFF
 
 EEE
 	chmod 755 "$app_34"

@@ -79,7 +79,7 @@ if [ "$1" = "x" ] ; then
 	transocks_renum=${transocks_renum:-"0"}
 	transocks_renum=`expr $transocks_renum + 1`
 	nvram set transocks_renum="$transocks_renum"
-	if [ "$transocks_renum" -gt "2" ] ; then
+	if [ "$transocks_renum" -gt "3" ] ; then
 		I=19
 		echo $I > $relock
 		logger -t "【$tran_c_socks】" "多次尝试启动失败，等待【"`cat $relock`"分钟】后自动尝试重新启动"
@@ -90,7 +90,7 @@ if [ "$1" = "x" ] ; then
 			[ "$(nvram get transocks_renum)" = "0" ] && exit 0
 			[ $I -lt 0 ] && break
 		done
-		nvram set transocks_renum="0"
+		nvram set transocks_renum="1"
 	fi
 	[ -f $relock ] && rm -f $relock
 fi
@@ -287,7 +287,7 @@ DNS_china=`nvram get wan0_dns |cut -d ' ' -f1`
 sstp_set dns_direct="$DNS_china"
 sstp_set dns_direct6='240C::6666'
 sstp_set dns_remote='8.8.8.8#53'
-sstp_set dns_remote6='2001:4860:4860::8888#53'
+sstp_set dns_remote6='::1#8053'
 [ "$transocks_mode_x" == "3" ] && sstp_set dns_direct='8.8.8.8' # 回国模式
 [ "$transocks_mode_x" == "3" ] && sstp_set dns_direct6='2001:4860:4860::8888' # 回国模式
 [ "$transocks_mode_x" == "3" ] && sstp_set dns_remote='223.5.5.5#53' # 回国模式

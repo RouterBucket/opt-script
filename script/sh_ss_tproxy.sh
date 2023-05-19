@@ -192,6 +192,20 @@ is_need_iproute() {
 	is_true "$tproxy" || is_enabled_udp
 }
 
+is_usrgrp_mode() {
+    [ "$uid_owner" != "0" ] || [ "$gid_owner" != "0" ]
+}
+
+get_usrgrp_args() {
+    if [ "$uid_owner" != "0" ] && [ "$gid_owner" != "0" ]; then
+        echo "--uid-owner $uid_owner --gid-owner $gid_owner"
+    elif [ "$uid_owner" != "0" ]; then
+        echo "--uid-owner $uid_owner"
+    elif [ "$gid_owner" != "0" ]; then
+        echo "--gid-owner $gid_owner"
+    fi
+}
+
 is_nonstd_dnsport() {
 	[ "$1" != '53' ]
 }
@@ -232,7 +246,25 @@ set_sysctl_option() {
 }
 
 resolve_hostname_by_hosts() {
-	cat /etc/hosts | sed 's/#.*//g' | grep -F "$1" | head -n1 | awk '{print $1}'
+	cat /etc/hosts /etc/storage/dnsmasq/hosts | sed 's/#.*//g' | grep -v "^$" | grep -F "$1" | head -n1 | awk '{print $1}'
+}
+
+resolve_hostname_by_doh() {
+	addr_family="$1" ; hostname="$2"
+	ipaddr=$(resolve_hostname_by_hosts "$hostname")
+	if [ "$ipaddr" ]; then
+		if [ "$addr_family" = '-4' ] ; then
+			ipaddr=$(echo "$ipaddr" | grep -v ":" | head -n1)
+			is_ipv4_address "$ipaddr" && echo "$ipaddr"
+			return
+		fi
+		if [ "$addr_family" = '-6' ] ; then
+			ipaddr=$(echo "$ipaddr" | grep ':' | head -n1)
+			is_ipv6_address "$ipaddr" && echo "$ipaddr"
+			return
+		fi
+	fi
+	[ "$addr_family" = '-4' ] && arNslookup "$hostname" || arNslookup6 "$hostname"
 }
 
 resolve_hostname_by_dig() {
@@ -401,12 +433,13 @@ delete_pidfile() {
 }
 
 load_config() {
-	for optentry in $optentries; do eval "$optentry"; done
 	if ! file_is_exists "$ss_tproxy_config"; then
 		log_error "file not found: $ss_tproxy_config"
 	else
 		source "$ss_tproxy_config" $arguments || log_error "load config failed, exit-code: $?"
 	fi
+
+	for optentry in $optentries; do eval "$optentry"; done
 
 	[ -z "$uid_owner" ] && uid_owner="0"
 	[ -z "$gid_owner" ] && gid_owner="0"
@@ -481,8 +514,6 @@ load_config() {
 		dns6_bp_type="$dns_direct6"
 	fi
 
-	for optentry in $optentries; do eval "$optentry"; done
-	
 	# ss_tproxy 配置文件的配置参数覆盖 web 的配置参数
 	dns_start_dnsproxy=`nvram get app_112`
 	[ -z $dns_start_dnsproxy ] && dns_start_dnsproxy=0 && nvram set app_112=0
@@ -582,14 +613,23 @@ check_config() {
 
 	case "$opts_hostname_resolver" in
 		auto)
-			if command_is_exists 'dig'; then
+			if command_is_exists 'nslookup' || command_is_exists 'wget' || command_is_exists 'curl' ; then
+				resolver_func='resolve_hostname_by_doh'
+			elif command_is_exists 'dig'; then
 				resolver_func='resolve_hostname_by_dig'
 			elif command_is_exists 'getent'; then
 				resolver_func='resolve_hostname_by_getent'
 			elif command_is_exists 'ping'; then
 				resolver_func='resolve_hostname_by_ping'
 			else
-				log_error "command not found: dig/getent/ping"
+				log_error "command not found: nslookup/wget/curl/dig/getent/ping"
+			fi
+			;;
+		doh)
+			if command_is_exists 'nslookup' || command_is_exists 'wget' || command_is_exists 'curl' ; then
+				resolver_func='resolve_hostname_by_doh'
+			else
+				log_error "command not found: nslookup/wget/curl"
 			fi
 			;;
 		dig)
@@ -1389,7 +1429,7 @@ mkdir -p /tmp/ss_tproxy/dnsmasq.d
 rm -rf /tmp/ss/dnsmasq.d/*
 dnsmasq_file="`ls -p /opt/app/ss_tproxy/dnsmasq.d | grep -v tmp | grep -v /`"
 [ ! -z "$dnsmasq_file" ] && echo "$dnsmasq_file" | while read conf_file; do [ "$(cat /opt/app/ss_tproxy/dnsmasq.d/$conf_file | grep -c "server=\|ipset=")" != "0"  ] &&  ln -sf /opt/app/ss_tproxy/dnsmasq.d/$conf_file /tmp/ss_tproxy/dnsmasq.d/$conf_file ; done
-restart_dhcpd
+restart_on_dhcpd
 }
 
 update_check_file() {
@@ -1538,7 +1578,7 @@ fi
 }
 
 start_dnsserver_confset() {
-sed -Ei '/no-resolv|server=127.0.0.1#8053|dns-forward-max=1000|min-cache-ttl=1800|ss_tproxy/d' /etc/storage/dnsmasq/dnsmasq.conf
+sed -Ei '/no-resolv|server=127.0.0.1|dns-forward-max=1000|min-cache-ttl=1800|ss_tproxy/d' /etc/storage/dnsmasq/dnsmasq.conf
 if [ "$ss_dnsproxy_x" != "2" ] ; then
 sed -Ei '/chinadns_ng|chinadns_0/d' /etc/storage/dnsmasq/dnsmasq.conf
 fi
@@ -1576,7 +1616,7 @@ update_dnsmasq_file
 }
 
 stop_dnsserver() {
-sed -Ei '/no-resolv|server=127.0.0.1#8053|dns-forward-max=1000|min-cache-ttl=1800|ss_tproxy/d' /etc/storage/dnsmasq/dnsmasq.conf
+sed -Ei '/no-resolv|server=127.0.0.1|dns-forward-max=1000|min-cache-ttl=1800|ss_tproxy/d' /etc/storage/dnsmasq/dnsmasq.conf
 sed ":a;N;s/\n\n\n/\n\n/g;ba" -i  /etc/storage/dnsmasq/dnsmasq.conf
 sed -Ei "/conf-dir=\/opt\/app\/ss_tproxy\/dnsmasq.d/d" /etc/storage/dnsmasq/dnsmasq.conf
 update_md5_check stop_dnsserver_restart_dhcpd /etc/storage/dnsmasq/dnsmasq.conf
@@ -1731,7 +1771,7 @@ _flush_iptables() {
 flush_iptables() {
 	is_true "$ipv4" && _flush_iptables "iptables"
 	is_true "$ipv6" && _flush_iptables "ip6tables"
-	is_true "$ipv6" && [ ! -z "$(ip6tables -vnL INPUT --line-numbers | grep -Ei "udp *dpt:53 *reject")" ] && ip6tables -D INPUT -p udp --dport 53 -j REJECT
+	[ ! -z "$(ip6tables -vnL INPUT --line-numbers | grep -Ei "udp *dpt:53 *reject")" ] && ip6tables -D INPUT -p udp --dport 53 -j REJECT
 }
 
 _show_iptables() {
@@ -1768,6 +1808,8 @@ check_startdnsredir() {
 
 	$1 -t nat -N SSTP_PREROUTING  &>/dev/null
 	$1 -t nat -I SSTP_PREROUTING  -m set ! --match-set $localaddr_setname src -p udp --dport 53 -j DNAT --to-destination $direct_dns_ip
+	$1 -t nat -N SSTP_POSTROUTING &>/dev/null
+	$1 -t nat -A SSTP_POSTROUTING -m set ! --match-set $localaddr_setname src -p udp -d $direct_dns_ip --dport 53 -j MASQUERADE &>/dev/null
 }
 
 check_snatrule() {
@@ -1998,6 +2040,10 @@ start_iptables_tproxy_mode() {
 	$1 -t mangle -A SSTP_RULE -j CONNMARK --save-mark
 
 	######################### SSTP_OUTPUT/SSTP_PREROUTING #########################
+
+	if is_usrgrp_mode; then
+		$1 -t mangle -I SSTP_OUTPUT -m owner $(get_usrgrp_args) -j RETURN
+	fi
 
 	if is_nonstd_dnsport "$dnsmasq_bind_port"; then
 		if [ "$lan_ipaddr" != "$loopback_addr" ] ; then
@@ -2251,6 +2297,10 @@ start_iptables_redirect_mode() {
 
 	######################### SSTP_OUTPUT/SSTP_PREROUTING #########################
 
+	if is_usrgrp_mode; then
+		$1 -t nat -I SSTP_OUTPUT -m owner $(get_usrgrp_args) -j RETURN
+		is_enabled_udp && $1 -t mangle -I SSTP_OUTPUT -m owner $(get_usrgrp_args) -j RETURN
+	fi
 	if is_nonstd_dnsport "$dnsmasq_bind_port"; then
 		if [ "$lan_ipaddr" != "$loopback_addr" ] ; then
 			$1 -t nat -A SSTP_OUTPUT -p udp -d $lan_ipaddr --dport 53 -j REDIRECT --to-ports $dnsmasq_bind_port
@@ -2259,11 +2309,7 @@ start_iptables_redirect_mode() {
 		fi
 	fi
 
-	[ "$uid_owner" != "0" ] &&     $1 -t nat -I SSTP_OUTPUT -m owner --uid-owner $uid_owner -j RETURN
-	[ "$gid_owner" != "0" ] &&     $1 -t nat -I SSTP_OUTPUT -m owner --gid-owner $gid_owner -j RETURN
 	[ "$output_return" != "1" ] && $1 -t nat -A SSTP_OUTPUT -m set --match-set $localaddr_setname src -m set ! --match-set $localaddr_setname dst -p tcp -j SSTP_RULE
-	[ "$uid_owner" != "0" ] && is_enabled_udp && $1 -t mangle -I SSTP_OUTPUT -m owner --uid-owner $uid_owner -j RETURN
-	[ "$gid_owner" != "0" ] && is_enabled_udp && $1 -t mangle -I SSTP_OUTPUT -m owner --gid-owner $gid_owner -j RETURN
 	if [ "$output_return" != "1" ] || [ "$output_udp_return" == "1" ] ; then
 		is_enabled_udp && $1 -t mangle -A SSTP_OUTPUT -m set --match-set $localaddr_setname src -m set ! --match-set $localaddr_setname dst -p udp -j SSTP_RULE
 	fi
@@ -2310,7 +2356,8 @@ start_iptables() {
 	wifidognx=""
 	wifidogn_manglex=""
 	is_true "$ipv6" && start_iptables_post_rules "ip6tables"
-	is_true "$ipv6" && [ -z "$(ip6tables -vnL INPUT --line-numbers | grep -Ei "udp *dpt:53 *reject")" ] && ip6tables -I INPUT -p udp --dport 53 -j REJECT
+	is_true "$ipv4" && { is_false "$ipv6" && [ -z "$(ip6tables -vnL INPUT --line-numbers | grep -Ei "udp *dpt:53 *reject")" ] && ip6tables -I INPUT -p udp --dport 53 -j REJECT ; }
+	logger -t "【sh_ss_tproxy.sh】" "完成加载 iptables 转发规则...."
 }
 
 gen_include() {

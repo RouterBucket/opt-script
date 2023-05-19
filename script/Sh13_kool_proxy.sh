@@ -159,7 +159,7 @@ if [ "$1" = "x" ] ; then
 	koolproxy_renum=${koolproxy_renum:-"0"}
 	koolproxy_renum=`expr $koolproxy_renum + 1`
 	nvram set koolproxy_renum="$koolproxy_renum"
-	if [ "$koolproxy_renum" -gt "2" ] ; then
+	if [ "$koolproxy_renum" -gt "3" ] ; then
 		I=19
 		echo $I > $relock
 		logger -t "【koolproxy】" "多次尝试启动失败，等待【"`cat $relock`"分钟】后自动尝试重新启动"
@@ -170,7 +170,7 @@ if [ "$1" = "x" ] ; then
 			[ "$(nvram get koolproxy_renum)" = "0" ] && exit 0
 			[ $I -lt 0 ] && break
 		done
-		nvram set koolproxy_renum="0"
+		nvram set koolproxy_renum="1"
 	fi
 	[ -f $relock ] && rm -f $relock
 fi
@@ -538,7 +538,7 @@ sed -Ei "/\/opt\/app\/ss_tproxy\/dnsmasq.d\/r.gfwlist.conf/d" /etc/storage/dnsma
 [ -s /tmp/ss_tproxy/dnsmasq.d/r.gfwlist.conf ] && [ -z "$(cat /etc/storage/dnsmasq/dnsmasq.conf | grep "/tmp/ss_tproxy/dnsmasq.d")" ] && echo "conf-file=/opt/app/ss_tproxy/dnsmasq.d/r.gfwlist.conf" >> "/etc/storage/dnsmasq/dnsmasq.conf"
 ipset flush adbybylist
 ipset add adbybylist 110.110.110.110
-restart_dhcpd
+restart_on_dhcpd
 
 logger -t "【iptables】" "admlist 规则处理完毕"
 
@@ -551,7 +551,7 @@ flush_r
 ipset -F adbybylist &> /dev/null
 #ipset destroy adbybylist &> /dev/null
 sed -Ei "/\/opt\/app\/ss_tproxy\/dnsmasq.d\/r.gfwlist.conf/d" /etc/storage/dnsmasq/dnsmasq.conf
-restart_dhcpd
+restart_on_dhcpd
 logger -t "【iptables】" "完成删除3000规则"
 }
 
@@ -821,35 +821,6 @@ EOF
 		iptables -t nat -A AD_BYBY_DNS_WAN_FW -j DNAT --to $ss_DNS_Redirect_IP
 	fi
 
-}
-
-
-arNslookup() {
-mkdir -p /tmp/arNslookup
-nslookup $1 | tail -n +3 | grep "Address" | awk '{print $3}'| grep -v ":" > /tmp/arNslookup/$$ &
-I=5
-while [ ! -s /tmp/arNslookup/$$ ] ; do
-		I=$(($I - 1))
-		[ $I -lt 0 ] && break
-		sleep 1
-done
-if [ -s /tmp/arNslookup/$$ ] ; then
-cat /tmp/arNslookup/$$ | sort -u | grep -v "^$"
-else
-	curltest=`which curl`
-	if [ -z "$curltest" ] || [ ! -s "`which curl`" ] ; then
-		Address="`wget -T 5 -t 3 --user-agent "$user_agent" --quiet --output-document=- http://119.29.29.29/d?dn=$1`"
-		if [ $? -eq 0 ]; then
-		echo "$Address" |  sed s/\;/"\n"/g | grep -E -o '([0-9]+\.){3}[0-9]+'
-		fi
-	else
-		Address="`curl --user-agent "$user_agent" -s http://119.29.29.29/d?dn=$1`"
-		if [ $? -eq 0 ]; then
-		echo "$Address" |  sed s/\;/"\n"/g | grep -E -o '([0-9]+\.){3}[0-9]+'
-		fi
-	fi
-fi
-rm -f /tmp/arNslookup/$$
 }
 
 initopt () {

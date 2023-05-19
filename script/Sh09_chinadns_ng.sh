@@ -64,7 +64,7 @@ if [ "$1" = "x" ] ; then
 	chinadns_ng_renum=${chinadns_ng_renum:-"0"}
 	chinadns_ng_renum=`expr $chinadns_ng_renum + 1`
 	nvram set chinadns_ng_renum="$chinadns_ng_renum"
-	if [ "$chinadns_ng_renum" -gt "2" ] ; then
+	if [ "$chinadns_ng_renum" -gt "3" ] ; then
 		I=19
 		echo $I > $relock
 		logger -t "【chinadns_ng】" "多次尝试启动失败，等待【"`cat $relock`"分钟】后自动尝试重新启动"
@@ -75,7 +75,7 @@ if [ "$1" = "x" ] ; then
 			[ "$(nvram get chinadns_ng_renum)" = "0" ] && exit 0
 			[ $I -lt 0 ] && break
 		done
-		nvram set chinadns_ng_renum="0"
+		nvram set chinadns_ng_renum="1"
 	fi
 	[ -f $relock ] && rm -f $relock
 fi
@@ -120,7 +120,7 @@ if [ "$chinadns_ng_enable" = "1" ] ; then
 		if [ "$port" = 0 ] ; then
 			logger -t "【chinadns_ng】" "检测:找不到 dnsmasq 转发规则, 重新添加"
 			# 写入dnsmasq配置
-			sed -Ei '/no-resolv|server=|server=127.0.0.1|dns-forward-max=1000|min-cache-ttl=1800|chinadns_ng/d' /etc/storage/dnsmasq/dnsmasq.conf
+			sed -Ei '/no-resolv|server=127.0.0.1|dns-forward-max=1000|min-cache-ttl=1800|chinadns_ng/d' /etc/storage/dnsmasq/dnsmasq.conf
 			sed ":a;N;s/\n\n\n/\n\n/g;ba" -i  /etc/storage/dnsmasq/dnsmasq.conf
 			cat >> "/etc/storage/dnsmasq/dnsmasq.conf" <<-EOF
 no-resolv #chinadns_ng
@@ -129,7 +129,7 @@ dns-forward-max=1000 #chinadns_ng
 min-cache-ttl=1800 #chinadns_ng
 domain-needed #chinadns_ng
 EOF
-			restart_dhcpd
+			restart_on_dhcpd
 		fi
 	fi
 fi
@@ -184,7 +184,7 @@ while [ "$chinadns_ng_enable" = "1" ]; do
 	if [ "$port" = 0 ] ; then
 		logger -t "【chinadns_ng】" "检测:找不到 dnsmasq 转发规则, 重新添加"
 		# 写入dnsmasq配置
-		sed -Ei '/no-resolv|server=|server=127.0.0.1|dns-forward-max=1000|min-cache-ttl=1800|chinadns_ng/d' /etc/storage/dnsmasq/dnsmasq.conf
+		sed -Ei '/no-resolv|server=127.0.0.1|dns-forward-max=1000|min-cache-ttl=1800|chinadns_ng/d' /etc/storage/dnsmasq/dnsmasq.conf
 		sed ":a;N;s/\n\n\n/\n\n/g;ba" -i  /etc/storage/dnsmasq/dnsmasq.conf
 		cat >> "/etc/storage/dnsmasq/dnsmasq.conf" <<-EOF
 no-resolv #chinadns_ng
@@ -193,7 +193,7 @@ dns-forward-max=1000 #chinadns_ng
 min-cache-ttl=1800 #chinadns_ng
 domain-needed #chinadns_ng
 EOF
-		restart_dhcpd
+		restart_on_dhcpd
 	fi
 sleep 69
 chinadns_ng_enable=`nvram get app_102` #chinadns_ng_enable
@@ -203,9 +203,9 @@ done
 chinadns_ng_close () {
 kill_ps "$scriptname keep"
 sed -Ei '/【chinadns_ng】|^$/d' /tmp/script/_opt_script_check
-sed -Ei '/no-resolv|server=|server=127.0.0.1|dns-forward-max=1000|min-cache-ttl=1800|chinadns_ng/d' /etc/storage/dnsmasq/dnsmasq.conf
+sed -Ei '/no-resolv|server=127.0.0.1|dns-forward-max=1000|min-cache-ttl=1800|chinadns_ng/d' /etc/storage/dnsmasq/dnsmasq.conf
 sed ":a;N;s/\n\n\n/\n\n/g;ba" -i  /etc/storage/dnsmasq/dnsmasq.conf
-restart_dhcpd
+restart_on_dhcpd
 killall  chinadns_ng dns2tcp smartdns
 killall -9  chinadns_ng dns2tcp smartdns
 kill_ps "/tmp/script/_app19"
@@ -300,7 +300,7 @@ fi
 initopt
 
 # 写入dnsmasq配置
-sed -Ei '/no-resolv|server=|server=127.0.0.1|dns-forward-max=1000|min-cache-ttl=1800|chinadns_ng/d' /etc/storage/dnsmasq/dnsmasq.conf
+sed -Ei '/no-resolv|server=127.0.0.1|dns-forward-max=1000|min-cache-ttl=1800|chinadns_ng/d' /etc/storage/dnsmasq/dnsmasq.conf
 sed ":a;N;s/\n\n\n/\n\n/g;ba" -i  /etc/storage/dnsmasq/dnsmasq.conf
 	cat >> "/etc/storage/dnsmasq/dnsmasq.conf" <<-EOF
 no-resolv #chinadns_ng
@@ -310,7 +310,7 @@ min-cache-ttl=1800 #chinadns_ng
 domain-needed #chinadns_ng
 EOF
 
-restart_dhcpd
+restart_on_dhcpd
 
 chinadns_ng_get_status
 eval "$scriptfilepath keep &"
