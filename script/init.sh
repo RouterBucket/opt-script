@@ -1,17 +1,13 @@
 #!/bin/bash
-#copyright by hiboy
+#copyright by hiboy and gustavo8000br
 export PATH='/etc/storage/bin:/tmp/script:/etc/storage/script:/opt/usr/sbin:/opt/usr/bin:/opt/sbin:/opt/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin'
 export LD_LIBRARY_PATH=/lib:/opt/lib
 init_ver=2
 #set -x
-#hiboyfile="https://bitbucket.org/hiboyhiboy/opt-file/raw/master"
-#hiboyscript="https://bitbucket.org/hiboyhiboy/opt-script/raw/master"
-#hiboyfile2="https://gcore.jsdelivr.net/gh/HiboyHiboy/opt-file"
-#hiboyscript2="https://gcore.jsdelivr.net/gh/HiboyHiboy/opt-script"
-hiboyfile="https://opt.cn2qq.com/opt-file"
-hiboyscript="https://opt.cn2qq.com/opt-script"
-hiboyfile2="https://raw.githubusercontent.com/hiboyhiboy/opt-file/master"
-hiboyscript2="https://raw.githubusercontent.com/hiboyhiboy/opt-script/master"
+hiboyfile="https://opt.computandotech.com.br/opt-file"
+hiboyscript="https://opt.computandotech.com.br/opt-script"
+hiboyfile2="https://raw.githubusercontent.com/RouterBucket/opt-file/master"
+hiboyscript2="https://raw.githubusercontent.com/RouterBucket/opt-script/master"
 # --user-agent
 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36'
 ACTION=$1
