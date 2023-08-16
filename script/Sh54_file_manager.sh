@@ -75,7 +75,7 @@ exit 0
 filemanager_get_status () {
 
 A_restart=`nvram get filemanager_status`
-B_restart="$filemanager_enable$caddy_enable$filemanager_wan$filemanager_wan_port$(cat /etc/storage/app_5.sh /etc/storage/app_11.sh | grep -v "^#" | grep -v "^$")"
+B_restart="$filemanager_enable$caddy_enable$filemanager_wan$filemanager_wan_port$(cat /etc/storage/app_5.sh /etc/storage/app_11.sh | grep -v '^#' | grep -v '^$')"
 B_restart=`echo -n "$B_restart" | md5sum | sed s/[[:space:]]//g | sed s/-//g`
 cut_B_re
 if [ "$A_restart" != "$B_restart" ] ; then
@@ -344,7 +344,7 @@ if [ "$1" = "del" ] ; then
 	rm -rf /opt/app/filemanager/Advanced_Extensions_filemanager.asp
 	[ -f "$filemanager_upanPath/filemanager/filemanager" ] && rm -f $filemanager_upanPath/filemanager/filemanager
 	[ -f "$filemanager_upanPath/filemanager/caddy_filebrowser" ] && rm -f $filemanager_upanPath/filemanager/caddy_filebrowser
-	[ -f "/opt/bin/filebrowser" ] && rm -f /opt/bin/filebrowser
+	[ -f "/opt/bin/filebrowser" ] && rm -f /opt/bin/filebrowser /opt/opt_backup/bin/filebrowser
 fi
 
 initconfig

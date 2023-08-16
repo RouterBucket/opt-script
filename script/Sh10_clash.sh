@@ -17,12 +17,22 @@ ss_udp_enable=`nvram get ss_udp_enable` #udp转发  0、停用；1、启动
 [ -z $ss_udp_enable ] && ss_udp_enable=0 && nvram set ss_udp_enable=0
 app_114=`nvram get app_114` #0:代理本机流量; 1:跳过代理本机流量
 [ -z $app_114 ] && app_114=0 && nvram set app_114=0
-clash_ui=`nvram get app_94`
-[ -z $clash_ui ] && clash_ui="0.0.0.0:9090" && nvram set app_94="0.0.0.0:9090"
 lan_ipaddr=`nvram get lan_ipaddr`
+clash_ui=`nvram get app_94`
+if [ -z $clash_ui ] || [ ! -z "$(echo "$clash_ui" | grep "0.0.0.0")" ] || [ -z "$(echo $clash_ui | grep ":")" ] ; then
+	SEED=`tr -cd 0-9 </dev/urandom | head -c 8`
+	RND_NUM=`echo $SEED 19090 49090|awk '{srand($1);printf "%d",rand()*10000%($3-$2)+$2}'`
+	clash_ui="$lan_ipaddr:$RND_NUM" && nvram set app_94="$clash_ui"
+fi
 app_default_config=`nvram get app_115`
 [ -z $app_default_config ] && app_default_config=0 && nvram set app_115=0
 clash_secret=`nvram get app_119`
+if [ -z $clash_secret ] ; then
+	SEED=`tr -cd 0-9 </dev/urandom | head -c 8`
+	RND_NUM=`echo $SEED 8 12|awk '{srand($1);printf "%d",rand()*10000%($3-$2)+$2}'`
+	clash_secret="$(echo -n $SEED | md5sum | sed s/[[:space:]]//g | sed s/-//g | head -c $RND_NUM)"
+	nvram set app_119=$clash_secret
+fi
 app_120=`nvram get app_120`
 curltest=`which curl`
 secret=""
@@ -122,9 +132,9 @@ clash_get_status () {
 
 A_restart=`nvram get clash_status`
 B_restart="$clash_enable$chinadns_enable$chinadns_ng_enable$clash_http_enable$clash_socks_enable$clash_wget_yml$clash_follow$clash_ui$clash_input$clash_mixed$app_default_config$clash_secret$app_120$log_level$clash_mode_x$ss_udp_enable$app_114$app_78$ss_ip46"
-B_restart="$B_restart""$(cat /etc/storage/app_21.sh | grep -v '^#' | grep -v "^$")""$(cat /etc/storage/app_33.sh | grep -v '^#' | grep -v "^$")"
+B_restart="$B_restart""$(cat /etc/storage/app_21.sh | grep -v '^#' | grep -v '^$')""$(cat /etc/storage/app_33.sh | grep -v '^#' | grep -v '^$')"
 if [ -z "$curltest" ] || [ "$app_120" == "2" ] ; then
-B_restart="$B_restart""$(cat /etc/storage/app_20.sh | grep -v '^#' | grep -v "^$")"
+B_restart="$B_restart""$(cat /etc/storage/app_20.sh | grep -v '^#' | grep -v '^$')"
 fi
 [ "$(nvram get app_86)" = "wget_yml" ] && wget_yml
 [ "$(nvram get app_86)" = "clash_wget_geoip" ] && update_geoip
@@ -156,7 +166,7 @@ fi
 
 clash_get_2_status () {
 D_restart=`nvram get clash_2_status`
-C_restart="$(cat /etc/storage/app_20.sh | grep -v '^#' | grep -v "^$")"
+C_restart="$(cat /etc/storage/app_20.sh | grep -v '^#' | grep -v '^$')"
 C_restart=`echo -n "$C_restart" | md5sum | sed s/[[:space:]]//g | sed s/-//g`
 cut_C_re
 if [ "$D_restart" != "$C_restart" ] ; then
@@ -282,7 +292,7 @@ if [ ! -s /opt/app/clash/config/Country.mmdb ] ; then
 logger -t "【clash】" "初次启动会自动下载 geoip 数据库文件：/opt/app/clash/config/Country.mmdb"
 logger -t "【clash】" "备注：如果缺少 geoip 数据库文件会启动失败，需 v0.17.1 或以上版本才能自动下载 geoip 数据库文件"
 if [ ! -f /opt/app/clash/config/Country_mmdb ] ; then
-wgetcurl_checkmd5 /opt/app/clash/config/Country.mmdb "https://gcore.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/lite/Country.mmdb" "$hiboyfile/Country.mmdb" N
+wgetcurl_checkmd5 /opt/app/clash/config/Country.mmdb "https://gcore.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country.mmdb" "$hiboyfile/Country.mmdb" N
 [ -s /opt/app/clash/config/Country.mmdb ] && touch /opt/app/clash/config/Country_mmdb
 fi
 fi
@@ -816,7 +826,7 @@ logger -t "【clash】" "更新下载 GeoIP2国家数据库 数据库文件"
 mkdir -p /opt/app/clash/config
 rm -f /opt/app/clash/config/Country_mmdb
 if [ ! -f /opt/app/clash/config/Country_mmdb ] ; then
-wgetcurl_checkmd5 /opt/app/clash/config/Country.mmdb "https://gcore.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb" "https://github.com/Dreamacro/maxmind-geoip/releases/latest/download/Country.mmdb" N
+wgetcurl_checkmd5 /opt/app/clash/config/Country.mmdb "https://gcore.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country.mmdb" "https://github.com/Dreamacro/maxmind-geoip/releases/latest/download/Country.mmdb" N
 [ -s /opt/app/clash/config/Country.mmdb ] && touch /opt/app/clash/config/Country_mmdb
 fi
 reload_api
@@ -1087,6 +1097,10 @@ rm -rf /opt/app/clash/clash_webs
 tar -xzvf /opt/app/clash/clash_webs_tmp/clash_webs.tgz -C /opt/app/clash ; cd /opt
 fi
 rm -rf /opt/app/clash/clash_webs_tmp
+fi
+if [ ! -z "$(cat /opt/app/clash/Advanced_Extensions_clash.asp | grep 9090)" ] ; then
+sed -e 's@var port = .*@var port = document.querySelector("#app_94").value.split(":")[1];@' -i /opt/app/clash/Advanced_Extensions_clash.asp
+sed -e 's@0.0.0.0:9090@@' -i /opt/app/clash/Advanced_Extensions_clash.asp
 fi
 }
 

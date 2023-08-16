@@ -919,7 +919,7 @@ exit 0
 ss_get_status () {
 
 A_restart=`nvram get ss_status`
-B_restart="$ss_enable$ss_ip46$chinadns_enable$chinadns_ng_enable$ss_threads$ss_link_1$ss_link_2$ss_rebss_n$ss_rebss_a$lan_ipaddr$ss_DNS_Redirect$ss_DNS_Redirect_IP$ss_type$ss_run_ss_local$ss_s1_local_address$ss_s1_local_port$ss_pdnsd_wo_redir$ss_mode_x$ss_multiport$ss_upd_rules$ss_tochina_enable$ss_udp_enable$LAN_AC_IP$ss_pdnsd_all$kcptun_server$(nvram get wan0_dns |cut -d ' ' -f1)$(cat /etc/storage/shadowsocks_ss_spec_lan.sh /etc/storage/shadowsocks_ss_spec_wan.sh /etc/storage/shadowsocks_mydomain_script.sh | grep -v '^#' | grep -v "^$")"
+B_restart="$ss_enable$ss_ip46$chinadns_enable$chinadns_ng_enable$ss_threads$ss_link_1$ss_link_2$ss_rebss_n$ss_rebss_a$lan_ipaddr$ss_DNS_Redirect$ss_DNS_Redirect_IP$ss_type$ss_run_ss_local$ss_s1_local_address$ss_s1_local_port$ss_pdnsd_wo_redir$ss_mode_x$ss_multiport$ss_upd_rules$ss_tochina_enable$ss_udp_enable$LAN_AC_IP$ss_pdnsd_all$kcptun_server$(nvram get wan0_dns |cut -d ' ' -f1)$(cat /etc/storage/shadowsocks_ss_spec_lan.sh /etc/storage/shadowsocks_ss_spec_wan.sh /etc/storage/shadowsocks_mydomain_script.sh | grep -v '^#' | grep -v '^$')"
 B_restart=`echo -n "$B_restart" | md5sum | sed s/[[:space:]]//g | sed s/-//g`
 cut_B_re
 if [ "$A_restart" != "$B_restart" ] ; then
@@ -1263,7 +1263,7 @@ ping_ss_link () {
 	while read line
 	do
 	line="$(echo $line)"
-	if [ ! -z "$line" ] && [ -z "$(echo $line | grep "^#")" ] ; then
+	if [ ! -z "$line" ] && [ -z "$(echo $line | grep '^#')" ] ; then
 		i_ping=`expr $i_ping + 1`
 		x_ping_x "$i_ping" &
 		usleep 100000
@@ -1544,7 +1544,7 @@ fi
 done < /tmp/link/matching/link_ss_matching_0.txt
 if [ -f /tmp/link/matching/link_ss_matching_1.txt ] && [ -s /tmp/link/matching/link_ss_matching_1.txt ] ; then
 sed -Ei '/^$/d' /tmp/link/matching/link_ss_matching_1.txt
-cat /tmp/link/matching/link_ss_matching_1.txt | sort | grep -v "^$" > /tmp/link/matching/link_ss_matching.txt
+cat /tmp/link/matching/link_ss_matching_1.txt | sort | grep -v '^$' > /tmp/link/matching/link_ss_matching.txt
 rm -f /tmp/link/matching/link_ss_matching_1.txt
 logger -t "【自动选用节点】" "重新生成自动选用节点列表： /tmp/link/matching/link_ss_matching.txt"
 fi
@@ -1655,6 +1655,7 @@ G,208.67.220.220
 G,91.108.4.0/22
 G,91.108.8.0/22
 G,91.108.12.0/22
+G,91.108.16.0/22
 G,91.108.20.0/22
 G,91.108.36.0/23
 G,91.108.38.0/23
@@ -1665,6 +1666,7 @@ G,149.154.162.0/23
 G,149.154.164.0/22
 G,149.154.168.0/21
 G,149.154.172.0/22
+G,149.154.160.0/20
 G,149.154.160.1/32
 G,149.154.160.2/31
 G,149.154.160.4/30
@@ -1674,16 +1676,22 @@ G,149.154.160.32/27
 G,149.154.160.64/26
 G,149.154.160.128/25
 G,149.154.164.0/22
+G,91.105.192.0/23
 G,91.108.4.0/22
+G,91.108.20.0/22
 G,91.108.56.0/24
 G,109.239.140.0/24
 G,67.198.55.0/24
 G,91.108.56.172
 G,149.154.175.50
+G,185.76.151.0/24
 # 
 # Telegram IPv6
+~G,2001:b28:f23d::/48
+~G,2001:b28:f23f::/48
 ~G,2001:67c:4e8::/48
-~G,2001:0b28:f23d::/48
+~G,2001:b28:f23c::/48
+~G,2a0a:f280::/32
 # 
 # api
 @g,api.telegram.org

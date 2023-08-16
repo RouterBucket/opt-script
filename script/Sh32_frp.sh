@@ -86,7 +86,7 @@ exit 0
 frp_get_status () {
 
 A_restart=`nvram get frp_status`
-B_restart="$frp_enable$frpc_enable$frps_enable$frp_version$(cat /etc/storage/frp_script.sh | grep -v '^#' | grep -v "^$")"
+B_restart="$frp_enable$frpc_enable$frps_enable$frp_version$(cat /etc/storage/frp_script.sh | grep -v '^#' | grep -v '^$')"
 B_restart=`echo -n "$B_restart" | md5sum | sed s/[[:space:]]//g | sed s/-//g`
 cut_B_re
 if [ "$A_restart" != "$B_restart" ] ; then
@@ -272,7 +272,7 @@ restart_on_dhcpd
 if [ "$frps_enable" = "1" ] ; then
 	sleep 4
 	[ -z "`pidof frps`" ] && logger -t "【frp】" "frps启动失败, 注意检查端口是否有冲突,程序是否下载完整,10 秒后自动尝试重新启动" && sleep 10 && frp_restart x
-	[ ! -z "`pidof frps`" ] && logger -t "【nps】" "请手动配置【外部网络 - 端口转发 - 启用手动端口映射】来开启WAN访问"
+	[ ! -z "`pidof frps`" ] && logger -t "【frp】" "请手动配置【外部网络 - 端口转发 - 启用手动端口映射】来开启WAN访问"
 fi
 if [ "$frpc_enable" = "1" ] ; then
 	[ "$frps_enable" = "1" ] && sleep 64
