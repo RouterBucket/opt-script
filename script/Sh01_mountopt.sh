@@ -1,5 +1,5 @@
 #!/bin/bash
-#copyright by hiboy
+#copyright by hiboy and gustavo8000br
 source /etc/storage/script/init.sh
 #nvramshow=`nvram showall | grep '=' | grep opt | awk '{print gensub(/'"'"'/,"'"'"'\"'"'"'\"'"'"'","g",$0);}'| awk '{print gensub(/=/,"='\''",1,$0)"'\'';";}'` && eval $nvramshow
 optinstall=`nvram get optinstall`
@@ -10,8 +10,8 @@ opt_cifs_dir=`nvram get opt_cifs_dir`
 opt_cifs_2_dir=`nvram get opt_cifs_2_dir`
 [ -z $opt_cifs_2_dir ] && opt_cifs_2_dir="/media/cifs" && nvram set opt_cifs_2_dir="$opt_cifs_2_dir"
 opt_cifs_block=`nvram get opt_cifs_block`
-[ "$opt_cifs_block" = "0" ] && opt_cifs_block="1999" && nvram set opt_cifs_block="$opt_cifs_block"
-[ -z $opt_cifs_block ] && opt_cifs_block="1999" && nvram set opt_cifs_block="$opt_cifs_block"
+[ "$opt_cifs_block" = "0" ] && opt_cifs_block="4096" && nvram set opt_cifs_block="$opt_cifs_block"
+[ -z $opt_cifs_block ] && opt_cifs_block="4096" && nvram set opt_cifs_block="$opt_cifs_block"
 size_tmpfs=`nvram get size_tmpfs`
 [ -z $size_tmpfs ] && size_tmpfs="0" && nvram set size_tmpfs="$size_tmpfs"
 size_media_enable=`nvram get size_media_enable`
@@ -31,12 +31,12 @@ opt_force () {
 opt_force_enable=`nvram get opt_force_enable`
 [ -z $opt_force_enable ] && opt_force_enable="0" && nvram set opt_force_enable="$opt_force_enable"
 opt_force_file=`nvram get opt_force_file`
-[ -z $opt_force_file ] && opt_force_file="https://opt.cn2qq.com/opt-file" && nvram set opt_force_file="$opt_force_file"
+[ -z $opt_force_file ] && opt_force_file="https://opt.computandotech.com.br/opt-file" && nvram set opt_force_file="$opt_force_file"
 opt_force_script=`nvram get opt_force_script`
-[ -z $opt_force_script ] && opt_force_script="https://opt.cn2qq.com/opt-script" && nvram set opt_force_script="$opt_force_script"
+[ -z $opt_force_script ] && opt_force_script="https://opt.computandotech.com.br/opt-script" && nvram set opt_force_script="$opt_force_script"
 if [ -z "$(cat /sbin/wgetcurl.sh | grep "/tmp/script/wgetcurl.sh")" ] ; then
 opt_force_www=`nvram get opt_force_www`
-[ -z $opt_force_www ] && opt_force_www="https://opt.cn2qq.com" && nvram set opt_force_www="$opt_force_www"
+[ -z $opt_force_www ] && opt_force_www="https://opt.computandotech.com.br" && nvram set opt_force_www="$opt_force_www"
 opt_force_file="$opt_force_www/opt-script"
 opt_force_script="$opt_force_www/opt-script"
 fi
@@ -52,10 +52,10 @@ if [ "$opt_force_enable" != "0" ] ; then
 else
 	sed -Ei '/^hiboyfile=/d' /etc/storage/script/init.sh
 	sed -Ei '/^hiboyscript=/d' /etc/storage/script/init.sh
-	echo 'hiboyfile="https://opt.cn2qq.com/opt-file"' >> /etc/storage/script/init.sh
-	echo 'hiboyscript="https://opt.cn2qq.com/opt-script"' >> /etc/storage/script/init.sh
-	hiboyfile="https://opt.cn2qq.com/opt-file"
-	hiboyscript="https://opt.cn2qq.com/opt-script"
+	echo 'hiboyfile="https://opt.computandotech.com.br/opt-file"' >> /etc/storage/script/init.sh
+	echo 'hiboyscript="https://opt.computandotech.com.br/opt-script"' >> /etc/storage/script/init.sh
+	hiboyfile="https://opt.computandotech.com.br/opt-file"
+	hiboyscript="https://opt.computandotech.com.br/opt-script"
 fi
 
 # 部署离线 opt 环境下载地址
@@ -78,8 +78,8 @@ if [ "$opt_download_enable" != "0" ] ; then
 	hiboyscript="$opt_force_script"
 else
 	if [ "$opt_force_file" == "$opt_force_file_tmp" ] ; then
-		opt_force_file="https://opt.cn2qq.com/opt-file"
-		opt_force_script="https://opt.cn2qq.com/opt-script"
+		opt_force_file="https://opt.computandotech.com.br/opt-file"
+		opt_force_script="https://opt.computandotech.com.br/opt-script"
 		nvram set opt_force_file="$opt_force_file"
 		nvram set opt_force_script="$opt_force_script"
 		sed -Ei '/^hiboyfile=/d' /etc/storage/script/init.sh
@@ -110,7 +110,7 @@ opt_cdn_force () {
 opt_force_enable=`nvram get opt_force_enable`
 if [ "$opt_force_enable" != "0" ] ; then
 	logger -t "【script】" "自定义 opt 环境下载地址失效 $opt_force_file"
-	logger -t "【script】" "建议使用免费CDN https://gcore.jsdelivr.net/gh/HiboyHiboy/opt-file"
+	logger -t "【script】" "建议使用免费CDN https://gcore.jsdelivr.net/gh/RouterBucket/opt-file"
 else
 	if [ ! -z "$(ping -4 -c 1 -w 4 -q "gcore.jsdelivr.net" | head -n1 | sed -r 's/\(|\)/|/g' | awk -F'|' '{print $2}')" ] ; then
 	opt_force_enable="1" && nvram set opt_force_enable="$opt_force_enable"
@@ -118,10 +118,10 @@ else
 	if [ "$opt_download_enable" != "0" ] ; then
 		opt_download_enable="0" && nvram set opt_download_enable="$opt_download_enable"
 	fi
-	opt_force_file="https://gcore.jsdelivr.net/gh/HiboyHiboy/opt-file" && nvram set opt_force_file="$opt_force_file"
-	opt_force_script="https://gcore.jsdelivr.net/gh/HiboyHiboy/opt-script" && nvram set opt_force_script="$opt_force_script"
-	logger -t "【script】" "下载地址失效 https://opt.cn2qq.com"
-	logger -t "【script】" "变更使用免费CDN https://gcore.jsdelivr.net/gh/HiboyHiboy/opt-file"
+	opt_force_file="https://gcore.jsdelivr.net/gh/RouterBucket/opt-file" && nvram set opt_force_file="$opt_force_file"
+	opt_force_script="https://gcore.jsdelivr.net/gh/RouterBucket/opt-script" && nvram set opt_force_script="$opt_force_script"
+	logger -t "【script】" "下载地址失效 https://opt.computandotech.com.br"
+	logger -t "【script】" "变更使用免费CDN https://gcore.jsdelivr.net/gh/RouterBucket/opt-file"
 	opt_force
 	fi
 fi
@@ -401,51 +401,51 @@ opt_update_download () {
 
 [ ! -d /tmp/AiDisk_00/ ] && return
 [ "$opt_download_enable" == "0" ] && return
-if [ ! -d /tmp/AiDisk_00/cn2qq/opt-script ] || [ ! -d /tmp/AiDisk_00/cn2qq/opt-file ] ; then
+if [ ! -d /tmp/AiDisk_00/RouterBucket/opt-script ] || [ ! -d /tmp/AiDisk_00/RouterBucket/opt-file ] ; then
 opt_download
 fi
 
 logger -t "【opt】" "增量更新离线 opt 环境下载地址"
-cn2qq_name="/tmp/AiDisk_00/cn2qq/opt-script"
-if [ -d $cn2qq_name ] ; then
-logger -t "【opt】" "opt-script 开始匹配： $cn2qq_name"
-cd $cn2qq_name
+RouterBucket_name="/tmp/AiDisk_00/RouterBucket/opt-script"
+if [ -d $RouterBucket_name ] ; then
+logger -t "【opt】" "opt-script 开始匹配： $RouterBucket_name"
+cd $RouterBucket_name
 #md5sum `/usr/bin/find ./ -type f | grep -v .git | grep -v md5.md5 | grep -v up_name.md5 | grep -v up_name.txt` > ./md5.md5
-wgetcurl_checkmd5 "$cn2qq_name/up_name.md5" "https://opt.cn2qq.com/opt-script/md5.md5" "https://raw.githubusercontent.com/hiboyhiboy/opt-script/master/md5.md5"
-if [ -s $cn2qq_name/up_name.md5 ] ; then
+wgetcurl_checkmd5 "$RouterBucket_name/up_name.md5" "https://opt.computandotech.com.br/opt-script/md5.md5" "https://raw.githubusercontent.com/RouterBucket/opt-script/master/md5.md5"
+if [ -s $RouterBucket_name/up_name.md5 ] ; then
 # 生成不匹配文件名
-cd $cn2qq_name
-md5sum -c $cn2qq_name/up_name.md5 | grep ": FAILED" | awk -F ':' '{print($1)}' | sed -e 's@^./@/@g' > $cn2qq_name/up_name.txt
+cd $RouterBucket_name
+md5sum -c $RouterBucket_name/up_name.md5 | grep ": FAILED" | awk -F ':' '{print($1)}' | sed -e 's@^./@/@g' > $RouterBucket_name/up_name.txt
 # 下载不匹配文件
-cat $cn2qq_name/up_name.txt | grep -v '^$' | while read update_addr; do [ ! -z "$update_addr" ] &&  wgetcurl_checkmd5 "$cn2qq_name$update_addr" "https://opt.cn2qq.com/opt-script$update_addr" "https://raw.githubusercontent.com/hiboyhiboy/opt-script/master$update_addr" Y; done
-rm -f $cn2qq_name/up_name.txt
-logger -t "【opt】" "opt-script 匹配完成： $cn2qq_name"
+cat $RouterBucket_name/up_name.txt | grep -v '^$' | while read update_addr; do [ ! -z "$update_addr" ] &&  wgetcurl_checkmd5 "$RouterBucket_name$update_addr" "https://opt.computandotech.com.br/opt-script$update_addr" "https://raw.githubusercontent.com/hiboyhiboy/opt-script/master$update_addr" Y; done
+rm -f $RouterBucket_name/up_name.txt
+logger -t "【opt】" "opt-script 匹配完成： $RouterBucket_name"
 else
 logger -t "【opt】" "opt-script 下载匹配md5文件失败"
 fi
 else
-logger -t "【opt】" "opt-script 找不到目录： $cn2qq_name"
+logger -t "【opt】" "opt-script 找不到目录： $RouterBucket_name"
 fi
 
-cn2qq_name="/tmp/AiDisk_00/cn2qq/opt-file"
-if [ -d $cn2qq_name ] ; then
-logger -t "【opt】" "opt-file 开始匹配： $cn2qq_name"
-cd $cn2qq_name
+RouterBucket_name="/tmp/AiDisk_00/RouterBucket/opt-file"
+if [ -d $RouterBucket_name ] ; then
+logger -t "【opt】" "opt-file 开始匹配： $RouterBucket_name"
+cd $RouterBucket_name
 #md5sum `/usr/bin/find ./ -type f | grep -v .git | grep -v md5.md5 | grep -v up_name.md5 | grep -v up_name.txt` > ./md5.md5
-wgetcurl_checkmd5 "$cn2qq_name/up_name.md5" "https://opt.cn2qq.com/opt-file/md5.md5" "https://raw.githubusercontent.com/hiboyhiboy/opt-file/master/md5.md5"
-if [ -s $cn2qq_name/up_name.md5 ] ; then
+wgetcurl_checkmd5 "$RouterBucket_name/up_name.md5" "https://opt.computandotech.com.br/opt-file/md5.md5" "https://raw.githubusercontent.com/RouterBucket/opt-file/master/md5.md5"
+if [ -s $RouterBucket_name/up_name.md5 ] ; then
 # 生成不匹配文件名
-cd $cn2qq_name
-md5sum -c $cn2qq_name/up_name.md5 | grep ": FAILED" | awk -F ':' '{print($1)}' | sed -e 's@^./@/@g' > $cn2qq_name/up_name.txt
+cd $RouterBucket_name
+md5sum -c $RouterBucket_name/up_name.md5 | grep ": FAILED" | awk -F ':' '{print($1)}' | sed -e 's@^./@/@g' > $RouterBucket_name/up_name.txt
 # 下载不匹配文件
-cat $cn2qq_name/up_name.txt | grep -v '^$' | while read update_addr; do [ ! -z "$update_addr" ] &&  wgetcurl_checkmd5 "$cn2qq_name$update_addr" "https://opt.cn2qq.com/opt-file$update_addr" "https://raw.githubusercontent.com/hiboyhiboy/opt-file/master$update_addr" Y; done
-rm -f $cn2qq_name/up_name.txt
-logger -t "【opt】" "opt-file 匹配完成： $cn2qq_name"
+cat $RouterBucket_name/up_name.txt | grep -v '^$' | while read update_addr; do [ ! -z "$update_addr" ] &&  wgetcurl_checkmd5 "$RouterBucket_name$update_addr" "https://opt.computandotech.com.br/opt-file$update_addr" "https://raw.githubusercontent.com/hiboyhiboy/opt-file/master$update_addr" Y; done
+rm -f $RouterBucket_name/up_name.txt
+logger -t "【opt】" "opt-file 匹配完成： $RouterBucket_name"
 else
 logger -t "【opt】" "opt-file 下载匹配md5文件失败"
 fi
 else
-logger -t "【opt】" "opt-file 找不到目录： $cn2qq_name"
+logger -t "【opt】" "opt-file 找不到目录： $RouterBucket_name"
 fi
 
 }
@@ -456,48 +456,48 @@ opt_download () {
 # 部署离线 opt 环境下载地址
 if [ "$opt_download_enable" != "0" ] ; then
 # 目录检测
-if [ ! -d /tmp/AiDisk_00/cn2qq/opt-script ] || [ ! -d /tmp/AiDisk_00/cn2qq/opt-file ] ; then
-[ ! -d /tmp/AiDisk_00/cn2qq/opt-script ] && logger -t "【opt】" "部署离线 opt-script 环境到 USB/cn2qq/opt-script"
-[ ! -d /tmp/AiDisk_00/cn2qq/opt-file ] && logger -t "【opt】" "部署离线 opt-file 环境到 USB/cn2qq/opt-file"
-mkdir -p /tmp/AiDisk_00/cn2qq
+if [ ! -d /tmp/AiDisk_00/RouterBucket/opt-script ] || [ ! -d /tmp/AiDisk_00/RouterBucket/opt-file ] ; then
+[ ! -d /tmp/AiDisk_00/RouterBucket/opt-script ] && logger -t "【opt】" "部署离线 opt-script 环境到 USB/RouterBucket/opt-script"
+[ ! -d /tmp/AiDisk_00/RouterBucket/opt-file ] && logger -t "【opt】" "部署离线 opt-file 环境到 USB/RouterBucket/opt-file"
+mkdir -p /tmp/AiDisk_00/RouterBucket
 if [[ "$(unzip -h 2>&1 | wc -l)" -gt 2 ]] ; then
-	opt_download_script="https://github.com/hiboyhiboy/opt-script/archive/master.zip"
-	opt_download_file="https://github.com/hiboyhiboy/opt-file/archive/master.zip"
+	opt_download_script="https://github.com/RouterBucket/opt-script/archive/master.zip"
+	opt_download_file="https://github.com/RouterBucket/opt-file/archive/master.zip"
 else
-	opt_download_script="https://opt.cn2qq.com/opt-script.tgz"
-	opt_download_file="https://opt.cn2qq.com/opt-file.tgz"
+	opt_download_script="https://opt.computandotech.com.br/opt-script.tgz"
+	opt_download_file="https://opt.computandotech.com.br/opt-file.tgz"
 fi
 
-[ -d /tmp/AiDisk_00/cn2qq/opt-script-master ] && { rm -rf /tmp/AiDisk_00/cn2qq/opt-script; ln -sf /tmp/AiDisk_00/cn2qq/opt-script-master /tmp/AiDisk_00/cn2qq/opt-script; }
-if [ ! -d /tmp/AiDisk_00/cn2qq/opt-script ] ; then
-	rm -rf /tmp/AiDisk_00/cn2qq/opt-script
-	rm -rf /tmp/AiDisk_00/cn2qq/opt-script-master
-if [ ! -f /tmp/AiDisk_00/cn2qq/opt-script.tgz ]  ; then
-	rm -f /tmp/AiDisk_00/cn2qq/opt-script.tgz
-	logger -t "【opt】" "/tmp/AiDisk_00/cn2qq 可用空间：$(df -m | grep '% /tmp/AiDisk_00/cn2qq' | awk 'NR==1' | awk -F' ' '{print $4}')M"
+[ -d /tmp/AiDisk_00/RouterBucket/opt-script-master ] && { rm -rf /tmp/AiDisk_00/RouterBucket/opt-script; ln -sf /tmp/AiDisk_00/RouterBucket/opt-script-master /tmp/AiDisk_00/RouterBucket/opt-script; }
+if [ ! -d /tmp/AiDisk_00/RouterBucket/opt-script ] ; then
+	rm -rf /tmp/AiDisk_00/RouterBucket/opt-script
+	rm -rf /tmp/AiDisk_00/RouterBucket/opt-script-master
+if [ ! -f /tmp/AiDisk_00/RouterBucket/opt-script.tgz ]  ; then
+	rm -f /tmp/AiDisk_00/RouterBucket/opt-script.tgz
+	logger -t "【opt】" "/tmp/AiDisk_00/RouterBucket 可用空间：$(df -m | grep '% /tmp/AiDisk_00/RouterBucket' | awk 'NR==1' | awk -F' ' '{print $4}')M"
 	logger -t "【opt】" "下载: $opt_download_script"
-	logger -t "【opt】" "下载到 USB/cn2qq/opt-script.tgz"
-	wgetcurl.sh '/tmp/AiDisk_00/cn2qq/opt-script.tgz' "$opt_download_script" "$opt_download_script"
-	logger -t "【opt】" "/tmp/AiDisk_00/cn2qq/opt-script.tgz 下载完成，开始解压"
+	logger -t "【opt】" "下载到 USB/RouterBucket/opt-script.tgz"
+	wgetcurl.sh '/tmp/AiDisk_00/RouterBucket/opt-script.tgz' "$opt_download_script" "$opt_download_script"
+	logger -t "【opt】" "/tmp/AiDisk_00/RouterBucket/opt-script.tgz 下载完成，开始解压"
 else
-	logger -t "【opt】" "/tmp/AiDisk_00/cn2qq/opt-script.tgz 已经存在，开始解压"
+	logger -t "【opt】" "/tmp/AiDisk_00/RouterBucket/opt-script.tgz 已经存在，开始解压"
 fi
 if [[ "$(unzip -h 2>&1 | wc -l)" -gt 2 ]] ; then
-	unzip -o /tmp/AiDisk_00/cn2qq/opt-script.tgz -d /tmp/AiDisk_00/cn2qq/
-	[ -d /tmp/AiDisk_00/cn2qq/opt-script-master ] && { rm -rf /tmp/AiDisk_00/cn2qq/opt-script; ln -sf /tmp/AiDisk_00/cn2qq/opt-script-master /tmp/AiDisk_00/cn2qq/opt-script; }
+	unzip -o /tmp/AiDisk_00/RouterBucket/opt-script.tgz -d /tmp/AiDisk_00/RouterBucket/
+	[ -d /tmp/AiDisk_00/RouterBucket/opt-script-master ] && { rm -rf /tmp/AiDisk_00/RouterBucket/opt-script; ln -sf /tmp/AiDisk_00/RouterBucket/opt-script-master /tmp/AiDisk_00/RouterBucket/opt-script; }
 else
-	tar -xz -C /tmp/AiDisk_00/cn2qq/ -f /tmp/AiDisk_00/cn2qq/opt-script.tgz
+	tar -xz -C /tmp/AiDisk_00/RouterBucket/ -f /tmp/AiDisk_00/RouterBucket/opt-script.tgz
 fi
-if [ ! -d /tmp/AiDisk_00/cn2qq/opt-script ] ; then
-	tar -xz -C /tmp/AiDisk_00/cn2qq/ -f /tmp/AiDisk_00/cn2qq/opt-script.tgz
-	unzip -o /tmp/AiDisk_00/cn2qq/opt-script.tgz -d /tmp/AiDisk_00/cn2qq/
-	[ -d /tmp/AiDisk_00/cn2qq/opt-script-master ] && { rm -rf /tmp/AiDisk_00/cn2qq/opt-script; ln -sf /tmp/AiDisk_00/cn2qq/opt-script-master /tmp/AiDisk_00/cn2qq/opt-script; }
+if [ ! -d /tmp/AiDisk_00/RouterBucket/opt-script ] ; then
+	tar -xz -C /tmp/AiDisk_00/RouterBucket/ -f /tmp/AiDisk_00/RouterBucket/opt-script.tgz
+	unzip -o /tmp/AiDisk_00/RouterBucket/opt-script.tgz -d /tmp/AiDisk_00/RouterBucket/
+	[ -d /tmp/AiDisk_00/RouterBucket/opt-script-master ] && { rm -rf /tmp/AiDisk_00/RouterBucket/opt-script; ln -sf /tmp/AiDisk_00/RouterBucket/opt-script-master /tmp/AiDisk_00/RouterBucket/opt-script; }
 fi
-logger -t "【opt】" "$upanPath/cn2qq/opt-script.tgz 解压完成！"
-if [ -f /tmp/AiDisk_00/cn2qq/opt-file/osub ] ; then
-wgetcurl.sh '/tmp/osub_tmp' "https://opt.cn2qq.com/opt-file/osub" "https://raw.githubusercontent.com/hiboyhiboy/opt-file/master/osub"
+logger -t "【opt】" "$upanPath/RouterBucket/opt-script.tgz 解压完成！"
+if [ -f /tmp/AiDisk_00/RouterBucket/opt-file/osub ] ; then
+wgetcurl.sh '/tmp/osub_tmp' "https://opt.RouterBucket.com/opt-file/osub" "https://raw.githubusercontent.com/RouterBucket/opt-file/master/osub"
 if [ -s /tmp/osub_tmp ] ; then
-	cp -f /tmp/osub_tmp /tmp/AiDisk_00/cn2qq/opt-file/osub
+	cp -f /tmp/osub_tmp /tmp/AiDisk_00/RouterBucket/opt-file/osub
 	rm -f /tmp/osub_tmp
 fi
 fi
@@ -505,32 +505,32 @@ fi
 sync
 fi
 
-[ -d /tmp/AiDisk_00/cn2qq/opt-file-master ] && { rm -rf /tmp/AiDisk_00/cn2qq/opt-file; ln -sf /tmp/AiDisk_00/cn2qq/opt-file-master /tmp/AiDisk_00/cn2qq/opt-file; }
-if [ ! -d /tmp/AiDisk_00/cn2qq/opt-file ] ; then
-	rm -rf /tmp/AiDisk_00/cn2qq/opt-file
-	rm -rf /tmp/AiDisk_00/cn2qq/opt-file-master
-if [ ! -f /tmp/AiDisk_00/cn2qq/opt-file.tgz ]  ; then
-	rm -f /tmp/AiDisk_00/cn2qq/opt-file.tgz
-	logger -t "【opt】" "/tmp/AiDisk_00/cn2qq 可用空间：$(df -m | grep '% /tmp/AiDisk_00/cn2qq' | awk 'NR==1' | awk -F' ' '{print $4}')M"
+[ -d /tmp/AiDisk_00/RouterBucket/opt-file-master ] && { rm -rf /tmp/AiDisk_00/RouterBucket/opt-file; ln -sf /tmp/AiDisk_00/RouterBucket/opt-file-master /tmp/AiDisk_00/RouterBucket/opt-file; }
+if [ ! -d /tmp/AiDisk_00/RouterBucket/opt-file ] ; then
+	rm -rf /tmp/AiDisk_00/RouterBucket/opt-file
+	rm -rf /tmp/AiDisk_00/RouterBucket/opt-file-master
+if [ ! -f /tmp/AiDisk_00/RouterBucket/opt-file.tgz ]  ; then
+	rm -f /tmp/AiDisk_00/RouterBucket/opt-file.tgz
+	logger -t "【opt】" "/tmp/AiDisk_00/RouterBucket 可用空间：$(df -m | grep '% /tmp/AiDisk_00/RouterBucket' | awk 'NR==1' | awk -F' ' '{print $4}')M"
 	logger -t "【opt】" "下载: $opt_download_file"
-	logger -t "【opt】" "下载到 USB/cn2qq/opt-file.tgz"
-	wgetcurl.sh '/tmp/AiDisk_00/cn2qq/opt-file.tgz' "$opt_download_file" "$opt_download_file"
-	logger -t "【opt】" "/tmp/AiDisk_00/cn2qq/opt-file.tgz 下载完成，开始解压"
+	logger -t "【opt】" "下载到 USB/RouterBucket/opt-file.tgz"
+	wgetcurl.sh '/tmp/AiDisk_00/RouterBucket/opt-file.tgz' "$opt_download_file" "$opt_download_file"
+	logger -t "【opt】" "/tmp/AiDisk_00/RouterBucket/opt-file.tgz 下载完成，开始解压"
 else
-	logger -t "【opt】" "/tmp/AiDisk_00/cn2qq/opt-file.tgz 已经存在，开始解压"
+	logger -t "【opt】" "/tmp/AiDisk_00/RouterBucket/opt-file.tgz 已经存在，开始解压"
 fi
 if [[ "$(unzip -h 2>&1 | wc -l)" -gt 2 ]] ; then
-	unzip -o /tmp/AiDisk_00/cn2qq/opt-file.tgz -d /tmp/AiDisk_00/cn2qq/
-	[ -d /tmp/AiDisk_00/cn2qq/opt-file-master ] && { rm -rf /tmp/AiDisk_00/cn2qq/opt-file; ln -sf /tmp/AiDisk_00/cn2qq/opt-file-master /tmp/AiDisk_00/cn2qq/opt-file; }
+	unzip -o /tmp/AiDisk_00/RouterBucket/opt-file.tgz -d /tmp/AiDisk_00/RouterBucket/
+	[ -d /tmp/AiDisk_00/RouterBucket/opt-file-master ] && { rm -rf /tmp/AiDisk_00/RouterBucket/opt-file; ln -sf /tmp/AiDisk_00/RouterBucket/opt-file-master /tmp/AiDisk_00/RouterBucket/opt-file; }
 else
-	tar -xz -C /tmp/AiDisk_00/cn2qq/ -f /tmp/AiDisk_00/cn2qq/opt-file.tgz
+	tar -xz -C /tmp/AiDisk_00/RouterBucket/ -f /tmp/AiDisk_00/RouterBucket/opt-file.tgz
 fi
-if [ ! -d /tmp/AiDisk_00/cn2qq/opt-file ] ; then
-	tar -xz -C /tmp/AiDisk_00/cn2qq/ -f /tmp/AiDisk_00/cn2qq/opt-file.tgz
-	unzip -o /tmp/AiDisk_00/cn2qq/opt-file.tgz -d /tmp/AiDisk_00/cn2qq/
-	[ -d /tmp/AiDisk_00/cn2qq/opt-file-master ] && { rm -rf /tmp/AiDisk_00/cn2qq/opt-file; ln -sf /tmp/AiDisk_00/cn2qq/opt-file-master /tmp/AiDisk_00/cn2qq/opt-file; }
+if [ ! -d /tmp/AiDisk_00/RouterBucket/opt-file ] ; then
+	tar -xz -C /tmp/AiDisk_00/RouterBucket/ -f /tmp/AiDisk_00/RouterBucket/opt-file.tgz
+	unzip -o /tmp/AiDisk_00/RouterBucket/opt-file.tgz -d /tmp/AiDisk_00/RouterBucket/
+	[ -d /tmp/AiDisk_00/RouterBucket/opt-file-master ] && { rm -rf /tmp/AiDisk_00/RouterBucket/opt-file; ln -sf /tmp/AiDisk_00/RouterBucket/opt-file-master /tmp/AiDisk_00/RouterBucket/opt-file; }
 fi
-logger -t "【opt】" "$upanPath/cn2qq/opt-file.tgz 解压完成！"
+logger -t "【opt】" "$upanPath/RouterBucket/opt-file.tgz 解压完成！"
 # flush buffers
 sync
 fi
@@ -626,7 +626,7 @@ if [ ! -s "/etc/ssl/certs/ca-certificates.crt" ] ; then
 		wgetcurl.sh /tmp/ssl/ipk/certs.tgz "$hiboyfile/certs.tgz" "$hiboyfile2/certs.tgz"
 		[ -s /tmp/ssl/ipk/certs.tgz ] && tar -xzvf /tmp/ssl/ipk/certs.tgz -C /tmp/ssl/ ; cd /opt
 		if [ ! -s "/etc/ssl/certs/ca-certificates.crt" ] ; then
-			wgetcurl.sh /tmp/ssl/ipk/certs.tgz "http://opt.cn2qq.com/opt-file/certs.tgz"
+			wgetcurl.sh /tmp/ssl/ipk/certs.tgz "http://opt.RouterBucket.com/opt-file/certs.tgz"
 			[ -s /tmp/ssl/ipk/certs.tgz ] && tar -xzvf /tmp/ssl/ipk/certs.tgz -C /tmp/ssl/ ; cd /opt
 		fi
 		if [ ! -s "/etc/ssl/certs/ca-certificates.crt" ] ; then
@@ -662,7 +662,7 @@ if [ "$mountp" = "0" ] && [ ! -s "/etc/ssl/certs/ca-certificates.crt" ] ; then
 		wgetcurl.sh /opt/app/ipk/certs.tgz "$hiboyfile/certs.tgz" "$hiboyfile2/certs.tgz"
 		[ -s /opt/app/ipk/certs.tgz ] && tar -xzvf /opt/app/ipk/certs.tgz -C /opt/etc/ssl/ ; cd /opt
 		if [ ! -s "/etc/ssl/certs/ca-certificates.crt" ] ; then
-			wgetcurl.sh /opt/app/ipk/certs.tgz "http://opt.cn2qq.com/opt-file/certs.tgz"
+			wgetcurl.sh /opt/app/ipk/certs.tgz "http://opt.RouterBucket.com/opt-file/certs.tgz"
 			[ -s /opt/app/ipk/certs.tgz ] && tar -xzvf /opt/app/ipk/certs.tgz -C /opt/etc/ssl/ ; cd /opt
 		fi
 		if [ ! -s "/etc/ssl/certs/ca-certificates.crt" ] ; then
@@ -1173,16 +1173,16 @@ opt_download)
 	opt_update_download &
 	;;
 opt_download_script)
-	[ -d /tmp/AiDisk_00/cn2qq/opt-script ] && rm -rf /tmp/AiDisk_00/cn2qq/opt-script
-	[ -d /tmp/AiDisk_00/cn2qq/opt-script-master ] && rm -rf /tmp/AiDisk_00/cn2qq/opt-script-master
-	[ -f /tmp/AiDisk_00/cn2qq/opt-script.tgz ] && rm -f /tmp/AiDisk_00/cn2qq/opt-script.tgz
+	[ -d /tmp/AiDisk_00/RouterBucket/opt-script ] && rm -rf /tmp/AiDisk_00/RouterBucket/opt-script
+	[ -d /tmp/AiDisk_00/RouterBucket/opt-script-master ] && rm -rf /tmp/AiDisk_00/RouterBucket/opt-script-master
+	[ -f /tmp/AiDisk_00/RouterBucket/opt-script.tgz ] && rm -f /tmp/AiDisk_00/RouterBucket/opt-script.tgz
 	opt_download_enable=1
 	opt_download &
 	;;
 opt_download_file)
-	[ -d /tmp/AiDisk_00/cn2qq/opt-file ] && rm -rf /tmp/AiDisk_00/cn2qq/opt-file
-	[ -d /tmp/AiDisk_00/cn2qq/opt-file-master ] && rm -rf /tmp/AiDisk_00/cn2qq/opt-file-master
-	[ -f /tmp/AiDisk_00/cn2qq/opt-file.tgz ] && rm -f /tmp/AiDisk_00/cn2qq/opt-file.tgz
+	[ -d /tmp/AiDisk_00/RouterBucket/opt-file ] && rm -rf /tmp/AiDisk_00/RouterBucket/opt-file
+	[ -d /tmp/AiDisk_00/RouterBucket/opt-file-master ] && rm -rf /tmp/AiDisk_00/RouterBucket/opt-file-master
+	[ -f /tmp/AiDisk_00/RouterBucket/opt-file.tgz ] && rm -f /tmp/AiDisk_00/RouterBucket/opt-file.tgz
 	opt_download_enable=1
 	opt_download &
 	;;

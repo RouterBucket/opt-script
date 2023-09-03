@@ -106,22 +106,23 @@ for(i=1;i<=NF;++i) { \
 }')"
 
 
-curl -H "Content-type: application/json;charset=UTF-8" -H "Accept: application/json" -H "Cache-Control: no-cache" -H "Pragma: no-cache" -X POST -d '{"touser":"'"$wxsend_touser"'","template_id":"'"$wxsend_template_id"'","data":{"title":{"value":"'" "'"},'"$content_value"'}}' "https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=$access_token"
+curl -L -s -H "Content-type: application/json;charset=UTF-8" -H "Accept: application/json" -H "Cache-Control: no-cache" -H "Pragma: no-cache" -X POST -d '{"touser":"'"$wxsend_touser"'","template_id":"'"$wxsend_template_id"'","data":{"title":{"value":"'" "'"},'"$content_value"'}}' "https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=$access_token"
 
 else
 logger -t "【wxsend推送】" "获取 Access token 错误，请看看哪里问题？"
 fi
 }
 
-if [ ! -z "$PATH_INFO" ] && [ ! -z "$GATEWAY_INTERFACE" ] ; then
+if [ ! -z "$PATH_INFO" ] && [ ! -z "$GATEWAY_INTERFACE" ] && [ -z "$1" ] ; then
 #source /etc/storage/script/init.sh
-wxsend_title="$(echo -n "$PATH_INFO" | awk -F "/" '{print $2}')"
-wxsend_content="$(echo -n "$PATH_INFO" | awk -F "/" '{print $3}')"
-wxsend_content2="$(echo -n "$PATH_INFO" | awk -F "/" '{print $4}')"
-wxsend_content3="$(echo -n "$PATH_INFO" | awk -F "/" '{print $5}')"
-wxsend_content4="$(echo -n "$PATH_INFO" | awk -F "/" '{print $6}')"
-wxsend_content5="$(echo -n "$PATH_INFO" | awk -F "/" '{print $7}')"
-wxsend_content6="$(echo -n "$PATH_INFO" | awk -F "/" '{print $8}')"
+logger -t "【wxsend推送】" "API PATH_INFO: $PATH_INFO"
+wxsend_title="$(echo -n "$PATH_INFO" | awk -F "/" '{print $3}')"
+wxsend_content="$(echo -n "$PATH_INFO" | awk -F "/" '{print $4}')"
+wxsend_content2="$(echo -n "$PATH_INFO" | awk -F "/" '{print $5}')"
+wxsend_content3="$(echo -n "$PATH_INFO" | awk -F "/" '{print $6}')"
+wxsend_content4="$(echo -n "$PATH_INFO" | awk -F "/" '{print $7}')"
+wxsend_content5="$(echo -n "$PATH_INFO" | awk -F "/" '{print $8}')"
+wxsend_content6="$(echo -n "$PATH_INFO" | awk -F "/" '{print $9}')"
 PATH_INFO=""
 GATEWAY_INTERFACE=""
 logger -t "【wxsend推送】" "API 消息标记: $wxsend_title"
@@ -213,7 +214,7 @@ wxsend_check () {
 
 wxsend_get_status
 if [ "$wxsend_enable" != "1" ] && [ "$needed_restart" = "1" ] ; then
-	[ "$wxsend_port" != "0" ] && [ "$tmall_enable" == "0" ] && [ ! -z "$(ps -w | grep "caddy_tmall" | grep -v grep )" ] && logger -t "【wxsend推送】" "停止 caddy"
+	[ "$wxsend_port" != "0" ] && [ "$tmall_enable" == "0" ] && [ ! -z "$(ps -w | grep "caddy_tmall" | grep -v grep )" ] && logger -t "【wxsend推送】" "停止 caddy_tmall"
 	[ ! -z "$(ps -w | grep "app_30" | grep -v grep )" ] && logger -t "【wxsend推送】" "停止 wxsend" && wxsend_close
 	{ kill_ps "$scriptname" exit0; exit 0; }
 fi
@@ -292,13 +293,13 @@ logger -t "【wxsend推送】" "运行 /etc/storage/app_30.sh"
 sleep 3
 [ ! -z "$(ps -w | grep "app_30" | grep -v grep )" ] && logger -t "【wxsend推送】" "启动成功" && wxsend_restart o
 [ -z "$(ps -w | grep "app_30" | grep -v grep )" ] && logger -t "【wxsend推送】" "启动失败, 注意检app_30.sh脚本和curl是否下载完整,10 秒后自动尝试重新启动" && sleep 10 && wxsend_restart x
-# caddy1
+# caddy2
 if [ "$wxsend_port" != "0" ] ; then
 logger -t "【wxsend推送】" "部署 api 提供外部程序使用消息推送"
 # 生成配置文件 /etc/storage/app_31.sh
 sed -e "s@^:.\+\({\)@:$wxsend_port {@g" -i /etc/storage/app_31.sh
-sed -e "s@^.\+cgi /.\+\(\#\)@ cgi /$wxsend_cgi /etc/storage/script/Sh45_wx_send.sh \#@g" -i /etc/storage/app_31.sh
-sed -e "s@^cgi /.\+\(\#\)@ cgi /$wxsend_cgi /etc/storage/script/Sh45_wx_send.sh \#@g" -i /etc/storage/app_31.sh
+sed -e "s@^.\+cgi /.\+\(\#\)@ cgi /$wxsend_cgi/\* /etc/storage/script/Sh45_wx_send.sh \#@g" -i /etc/storage/app_31.sh
+sed -e "s@^cgi /.\+\(\#\)@ cgi /$wxsend_cgi/\* /etc/storage/script/Sh45_wx_send.sh \#@g" -i /etc/storage/app_31.sh
 if [ "$tmall_enable" == "0" ] ; then
 SVC_PATH="/opt/tmall/caddy_tmall"
 if [ ! -s "$SVC_PATH" ] ; then
@@ -307,16 +308,16 @@ if [ ! -s "$SVC_PATH" ] ; then
 	initopt
 fi
 mkdir -p "/opt/tmall/www"
-wgetcurl_file "$SVC_PATH" "$hiboyfile/caddy1" "$hiboyfile2/caddy1"
-[ -z "$($SVC_PATH -plugins 2>&1 | grep http.cgi)" ] && rm -rf $SVC_PATH ;
-wgetcurl_file "$SVC_PATH" "$hiboyfile/caddy1" "$hiboyfile2/caddy1"
+wgetcurl_file "$SVC_PATH" "$hiboyfile/caddy2" "$hiboyfile2/caddy2"
+[ -z "$($SVC_PATH list-modules 2>&1 | grep http.handlers.cgi)" ] && rm -rf $SVC_PATH ;
+wgetcurl_file "$SVC_PATH" "$hiboyfile/caddy2" "$hiboyfile2/caddy2"
 if [ ! -s "$SVC_PATH" ] ; then
 	logger -t "【wxsend推送】" "找不到 $SVC_PATH ，需要手动安装 $SVC_PATH"
 	logger -t "【wxsend推送】" "启动失败, 10 秒后自动尝试重新启动" && sleep 10 && wxsend_restart x
 fi
 rm -f /opt/tmall/Caddyfile
 cat /etc/storage/app_31.sh >> /opt/tmall/Caddyfile
-eval "/opt/tmall/caddy_tmall -conf /opt/tmall/Caddyfile $cmd_log" &
+eval "/opt/tmall/caddy_tmall run --config /opt/tmall/Caddyfile --adapter caddyfile $cmd_log" &
 sleep 3
 [ ! -z "$(ps -w | grep "caddy_tmall" | grep -v grep )" ] && logger -t "【wxsend推送】" "部署 api 启动成功" && wxsend_restart o
 [ -z "$(ps -w | grep "caddy_tmall" | grep -v grep )" ] && logger -t "【wxsend推送】" "部署 api 启动失败, 注意检caddy_tmall是否下载完整,10 秒后自动尝试重新启动" && sleep 10 && wxsend_restart x
@@ -464,7 +465,7 @@ if [ "$wxsend_notify_2" = "1" ] ; then
     touch /tmp/var/wxsend_newhostname.txt
     echo "接入设备名称" > /tmp/var/wxsend_newhostname.txt
     #cat /tmp/syslog.log | grep 'Found new hostname' | awk '{print $7" "$8}' >> /tmp/var/wxsend_newhostname.txt
-    cat /tmp/static_ip.inf | grep -v '^$' | awk -F "," '{ if ( $6 == 0 ) print "【内网IP："$1"，ＭＡＣ："$2"，名称："$3"】  "}' >> /tmp/var/wxsend_newhostname.txt
+    cat /tmp/static_ip.inf | grep -v '^$' | awk -F "," '{ if ( $6 == 0 ) print "内网IP："$1"|ＭＡＣ："$2"|名称："$3}' >> /tmp/var/wxsend_newhostname.txt
     # 读取以往接入设备名称
     touch /etc/storage/wxsend_hostname.txt
     [ ! -s /etc/storage/wxsend_hostname.txt ] && echo "接入设备名称" > /etc/storage/wxsend_hostname.txt
@@ -484,7 +485,7 @@ if [ "$wxsend_notify_4" = "1" ] ; then
     touch /tmp/var/wxsend_newhostname.txt
     echo "接入设备名称" > /tmp/var/wxsend_newhostname.txt
     #cat /tmp/syslog.log | grep 'Found new hostname' | awk '{print $7" "$8}' >> /tmp/var/wxsend_newhostname.txt
-    cat /tmp/static_ip.inf | grep -v '^$' | awk -F "," '{ if ( $6 == 0 ) print "【内网IP："$1"，ＭＡＣ："$2"，名称："$3"】  "}' >> /tmp/var/wxsend_newhostname.txt
+    cat /tmp/static_ip.inf | grep -v '^$' | awk -F "," '{ if ( $6 == 0 ) print "内网IP："$1"|ＭＡＣ："$2"|名称："$3}' >> /tmp/var/wxsend_newhostname.txt
     # 读取以往上线设备名称
     touch /etc/storage/wxsend_hostname_上线.txt
     [ ! -s /etc/storage/wxsend_hostname_上线.txt ] && echo "接入设备名称" > /etc/storage/wxsend_hostname_上线.txt
@@ -515,7 +516,7 @@ if [ "$wxsend_notify_3" = "1" ] && [ "$resub" = "1" ] ; then
     [ ! -z "$(cat /tmp/var/wxsend_nsub | grep '<' | grep '>')" ] && echo "" > /tmp/var/wxsend_nsub
     if [ "$(cat /tmp/var/wxsend_osub |head -n1)"x != "$(cat /tmp/var/wxsend_nsub |head -n1)"x ] && [ -f /tmp/var/wxsend_nsub ] ; then
         echo -n `nvram get firmver_sub` > /tmp/var/wxsend_osub
-        content="新的固件： `cat /tmp/var/wxsend_nsub | grep -v '^$'` ，目前旧固件： `cat /tmp/var/wxsend_osub | grep -v '^$'` "
+        content="新的固件： `cat /tmp/var/wxsend_nsub | grep -v '^$'` ，|目前旧固件： `cat /tmp/var/wxsend_osub | grep -v '^$'` "
         logger -t "【wxsend推送】" "固件 新的更新：${content}"
         Sh45_wx_send.sh send_message "【""$wxsend_title""】固件更新提醒" "${content}" &
         echo -n `cat /tmp/var/wxsend_nsub | grep -v '^$'` > /tmp/var/wxsend_osub
@@ -537,16 +538,30 @@ fi
 
 
 app_31="/etc/storage/app_31.sh"
+if [ ! -z "$(cat "$app_31" | grep rotate_size)" ] ; then
+	logger -t "【wxsend推送】" "/etc/storage/app_31.old 备份旧配置，升级Caddy 2 不向后兼容 Caddy 1"
+	cp -f "$app_31" /etc/storage/app_31.old
+	rm -f "$app_31"
+fi
 if [ ! -f "$app_31" ] || [ ! -s "$app_31" ] ; then
 	cat > "$app_31" <<-\EEE
 # 此脚本路径：/etc/storage/app_31.sh
+{ # 全局配置
+order cgi before respond # 启动 cgi 模块 # 全局配置
+admin off # 关闭 API 端口 # 全局配置
+} # 全局配置
+
 :0 {
- root /opt/tmall/www
+ root * /opt/tmall/www
  # cgi触发 /key
- #cgi /111111111111 /etc/storage/script/Sh45_wx_send.sh # 脚本自动生成/key
- log /opt/tmall/requests_wxsend.log {
- rotate_size 1
- }
+ #cgi /111111111111/* /etc/storage/script/Sh45_wx_send.sh # 脚本自动生成/key
+ log {
+  output file /opt/tmall/requests_wxsend.log {
+   roll_size     1MiB
+   roll_local_time
+   roll_keep     5
+   roll_keep_for 120h
+  }
 }
 
 EEE

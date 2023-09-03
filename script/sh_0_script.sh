@@ -1,5 +1,5 @@
 #!/bin/bash
-#copyright by hiboy
+#copyright by hiboy and gustavo8000br
 #/etc/storage/script/sh_0_script.sh
 #/etc/storage/script_script.sh
 source /etc/storage/script/init.sh
@@ -32,33 +32,33 @@ mkdir -p /tmp/script
 { echo '#!/bin/bash' ; echo /etc/storage/script/Sh01_mountopt.sh '"$@"' ; } > /tmp/script/_mountopt
 chmod 777 /tmp/script/_mountopt
 nvram set ss_internet="0"
-/etc/storage/script/sh_ezscript.sh connAPSite_scan
+/etc/storage/script/sh_ezscript.sh connAPSite
 /etc/storage/script/Sh??_mento_hust.sh &
-ping_text=`ping -4 223.5.5.5 -c 1 -w 4 -q`
+ping_text=`ping -4 8.8.8.8 -c 1 -w 4 -q`
 ping_time=`echo $ping_text | awk -F '/' '{print $4}'| awk -F '.' '{print $1}'`
 ping_loss=`echo $ping_text | awk -F ', ' '{print $3}' | awk '{print $1}'`
 if [ ! -z "$ping_time" ] ; then
-	echo "ping：$ping_time ms 丢包率：$ping_loss"
+	echo "ping：$ping_time ms Packet loss rate：$ping_loss"
  else
-	echo "ping：失效"
+	echo "ping：fail"
 fi
 rb=1
 while [ -z "$ping_time" ];
 do
-logger -t "【自定义脚本】" "等待联网后开始脚本"
+logger -t "[custom script]" "Wait for the connection to start the script"
 sleep 8
 
-ping_text=`ping -4 223.5.5.5 -c 1 -w 4 -q`
+ping_text=`ping -4 8.8.8.8 -c 1 -w 4 -q`
 ping_time=`echo $ping_text | awk -F '/' '{print $4}'| awk -F '.' '{print $1}'`
 ping_loss=`echo $ping_text | awk -F ', ' '{print $3}' | awk '{print $1}'`
 if [ ! -z "$ping_time" ] ; then
-	echo "ping：$ping_time ms 丢包率：$ping_loss"
+	echo "ping：$ping_time ms Packet loss rate：$ping_loss"
  else
-	echo "ping：失效"
+	echo "ping：fail"
 fi
 rb=`expr $rb + 1`
 if [ "$rb" -gt 3 ] ; then
-	logger -t "【自定义脚本】" "等待联网超时"
+	logger -t "[custom script]" "Waiting for connection timeout"
 	ping_time=200
 	break
 fi
@@ -106,4 +106,4 @@ aria_enable=`nvram get aria_enable`
 [ "$aria_enable" == "1" ] && aria.sh start
 trmd_enable=`nvram get trmd_enable`
 [ "$trmd_enable" == "1" ] && transmission.sh start
-logger -t "【自定义脚本】" "初始化脚本完成"
+logger -t "[custom script]" "init script complete"
